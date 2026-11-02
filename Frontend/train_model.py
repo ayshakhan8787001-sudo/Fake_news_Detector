@@ -1,7 +1,7 @@
-﻿"""Train and evaluate the fake-news text classifier.
+﻿"""Train and evaluate the fake-news classifier, then save production artifacts.
 
 Evaluation vectorizers are fitted only on each training partition. After evaluation,
-a fresh classifier/vectorizer pair is fitted on all cleaned rows and saved for use.
+the final models and vectorizer are fitted on all cleaned rows and saved for use.
 """
 
 import re
@@ -51,7 +51,14 @@ def make_confidence_model():
     )
 
 
-def evaluate(name, train_indices, test_indices, statements, labels):
+def evaluate(
+    name,
+    train_indices,
+    test_indices,
+    statements,
+    labels,
+    score_confidence=False,
+):
     """Fit preprocessing/model on training rows only and report held-out metrics."""
     vectorizer = make_vectorizer()
     train_text = statements.iloc[train_indices]
@@ -80,7 +87,7 @@ def evaluate(name, train_indices, test_indices, statements, labels):
     print("Confusion matrix (rows=true, columns=predicted; labels [FAKE, TRUE]):")
     print(confusion_matrix(truth, predictions, labels=[0, 1]))
 
-    if name == "Stratified random 80/20 holdout":
+    if score_confidence:
         confidence_model = make_confidence_model()
         confidence_model.fit(train_features, labels.iloc[train_indices])
         true_probabilities = confidence_model.predict_proba(test_features)[
@@ -92,7 +99,7 @@ def evaluate(name, train_indices, test_indices, statements, labels):
         )
 
 
-def main():
+def load_and_clean_data():
     data = pd.read_csv(DATA_PATH)
     required = {"Statement", "Label"}
     missing = required.difference(data.columns)
@@ -104,7 +111,6 @@ def main():
     print(f"Dataset loaded: {DATA_PATH}")
     print(f"Input rows: {len(data)}")
 
-    data = data.copy()
     data["Statement"] = data["Statement"].map(normalize_statement)
     data["Label"] = data["Label"].astype(str).str.strip().str.casefold().map(
         {"true": 1, "fake": 0}
@@ -138,63 +144,28 @@ def main():
     if data["Label"].nunique() != 2 or data["Label"].value_counts().min() < 2:
         raise ValueError("Need at least two examples of each class for held-out evaluation.")
 
-    statements = data["Statement"]
-    labels = data["Label"]
-    all_indices = list(range(len(data)))
-    train_indices, test_indices = train_test_split(
-        all_indices,
-        test_size=0.2,
-        random_state=RANDOM_STATE,
-        stratify=labels,
-    )
-    evaluate(
-        "Stratified random 80/20 holdout",
-        train_indices,
-        test_indices,
-        statements,
-        labels,
-    )
+    return data
 
-    if "Web" in data.columns:
-        publishers = data["Web"].fillna("").astype(str).str.strip().str.upper()
-        publishers = publishers.mask(publishers.eq(""), "__UNKNOWN__")
-        publisher_split = None
-        # Try deterministic group splits until both partitions contain both labels.
-        for seed in range(RANDOM_STATE, RANDOM_STATE + 100):
-            splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=seed)
-            candidate_train, candidate_test = next(
-                splitter.split(statements, labels, groups=publishers)
-            )
-            if (
-                labels.iloc[candidate_train].nunique() == 2
-                and labels.iloc[candidate_test].nunique() == 2
-            ):
-                publisher_split = (candidate_train, candidate_test)
-                break
-        if publisher_split is None:
-            print(
-                "\nPublisher-held-out evaluation skipped: no deterministic 20% "
-                "publisher-group split in 100 attempts contained both classes "
-                "in train and test."
-            )
-        else:
-            publisher_train, publisher_test = publisher_split
-            held_out_publishers = sorted(set(publishers.iloc[publisher_test]))
-            print("\nHeld-out publisher groups:", ", ".join(held_out_publishers))
-            evaluate(
-                "Publisher-held-out evaluation",
-                publisher_train,
-                publisher_test,
-                statements,
-                labels,
-            )
-            print(
-                "Caveat: publisher-level performance is sensitive to the specific "
-                "held-out publishers and class mix; it is one diagnostic split, "
-                "not a deployment guarantee."
-            )
 
-    # Production artifacts use all cleaned rows only after the held-out evaluations.
+def find_publisher_split(statements, labels, publishers):
+    publishers = publishers.fillna("").astype(str).str.strip().str.upper()
+    publishers = publishers.mask(publishers.eq(""), "__UNKNOWN__")
+
+    for seed in range(RANDOM_STATE, RANDOM_STATE + 100):
+        splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=seed)
+        train_indices, test_indices = next(
+            splitter.split(statements, labels, groups=publishers)
+        )
+        if (
+            labels.iloc[train_indices].nunique() == 2
+            and labels.iloc[test_indices].nunique() == 2
+        ):
+            return train_indices, test_indices, publishers
+
+    return None
+
+
+def train_and_save_models(statements, labels):
     vectorizer = make_vectorizer()
     all_features = vectorizer.fit_transform(statements)
     model = LinearSVC(random_state=RANDOM_STATE)
@@ -213,6 +184,54 @@ def main():
         "reported holdout metrics are estimates for their respective splits, "
         "not scores of the full-data-fitted artifacts."
     )
+
+
+def main():
+    data = load_and_clean_data()
+    statements = data["Statement"]
+    labels = data["Label"]
+
+    train_indices, test_indices = train_test_split(
+        list(range(len(data))),
+        test_size=0.2,
+        random_state=RANDOM_STATE,
+        stratify=labels,
+    )
+    evaluate(
+        "Stratified random 80/20 holdout",
+        train_indices,
+        test_indices,
+        statements,
+        labels,
+        score_confidence=True,
+    )
+
+    if "Web" in data.columns:
+        split = find_publisher_split(statements, labels, data["Web"])
+        if split is None:
+            print(
+                "\nPublisher-held-out evaluation skipped: no deterministic 20% "
+                "publisher-group split in 100 attempts contained both classes "
+                "in train and test."
+            )
+        else:
+            publisher_train, publisher_test, publishers = split
+            held_out_publishers = sorted(set(publishers.iloc[publisher_test]))
+            print("\nHeld-out publisher groups:", ", ".join(held_out_publishers))
+            evaluate(
+                "Publisher-held-out evaluation",
+                publisher_train,
+                publisher_test,
+                statements,
+                labels,
+            )
+            print(
+                "Caveat: publisher-level performance is sensitive to the specific "
+                "held-out publishers and class mix; it is one diagnostic split, "
+                "not a deployment guarantee."
+            )
+
+    train_and_save_models(statements, labels)
 
 
 if __name__ == "__main__":

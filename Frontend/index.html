@@ -24,7 +24,6 @@
       <button class="menu-btn" id="menuBtn" aria-label="Open sidebar">
         <i class="fa-solid fa-bars"></i>
       </button>
-
       <a href="#" class="brand" id="homeLink">
         <div class="brand-logo">
           <i class="fa-solid fa-fingerprint"></i>
@@ -277,11 +276,11 @@
 
         </div>
 
-        <section class="confidence-card hidden" id="confidenceCard" aria-label="Model confidence">
+        <section class="confidence-card hidden" id="confidenceCard" aria-label="Model estimate">
           <div class="confidence-heading">
             <div>
-              <span class="confidence-label">MODEL CONFIDENCE</span>
-              <p>Estimated confidence in this model label</p>
+              <span class="confidence-label">MODEL ESTIMATE</span>
+              <p>How strongly the text matches patterns in its training examples</p>
             </div>
             <strong id="confidenceValue">--%</strong>
           </div>
@@ -289,14 +288,14 @@
             class="confidence-track"
             id="confidenceTrack"
             role="progressbar"
-            aria-label="Estimated model confidence"
+            aria-label="Model estimate"
             aria-valuemin="0"
             aria-valuemax="100"
             aria-valuenow="0"
           >
             <span id="confidenceBar"></span>
           </div>
-          <small>This is not prediction accuracy or independent fact verification.</small>
+          <small>This score describes the model's label, not the chance that the claim is true.</small>
         </section>
 
         <section class="article-details hidden" id="articleDetails" aria-label="Fetched article details">
@@ -551,10 +550,10 @@
         <div class="setting-item">
           <div>
             <b id="notificationsText">Notifications</b>
-            <small id="notificationsDescription">Alerts for new reports and investigation updates.</small>
+            <small id="notificationsDescription">Show a browser alert when a check finishes. Keep the browser open.</small>
           </div>
           <label class="switch">
-            <input type="checkbox" id="notificationToggle" checked />
+            <input type="checkbox" id="notificationToggle" />
             <span></span>
           </label>
         </div>

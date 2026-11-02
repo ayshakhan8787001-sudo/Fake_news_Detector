@@ -11,20 +11,16 @@
 - `make_dataset.py` — cleans and prepares the balanced training dataset
 
 ## Run on Windows
-1. Double-click `run.bat` in the `Frontend` folder.
-2. On the first run, it creates a local `.venv` and installs `requirements.txt`.
-3. Open `http://127.0.0.1:5000/app/` in your browser. Do not open `index.html`
-   directly as a file; the Flask server must be running for API requests.
-4. Keep the command window open while using the website.
-5. Run backend regression tests from this folder with
-   `py -m unittest discover -s tests`.
-6. To check the Flask server, open `http://127.0.0.1:5000/health`. A healthy
-   server returns `{"status":"ok","service":"news-detector-api"}`.
+1. Open a terminal in the `Frontend` folder.
+2. Run `.\venv\Scripts\python.exe app.py`. If required packages are missing, run `.\venv\Scripts\python.exe -m pip install -r requirements.txt` first.
+3. Open `http://127.0.0.1:5000/app/` in your browser.
+4. Keep the terminal open while using the website.
+5. Run backend regression tests with `.\venv\Scripts\python.exe -m unittest discover -s tests`.
+6. Check server health at `http://127.0.0.1:5000/health`.
 
-Flask serves the website and API from the same local address. The launcher uses
-an isolated Python environment to avoid conflicts with global Python packages,
-reuses an existing detector server, and warns if another process occupies port
-5000.
+Flask serves the website and API from the same local address. The `venv`
+environment keeps this project's Python packages separate from other projects.
+Use the environment-specific command above so the app loads the working packages.
 
 ## Related news search (optional)
 The result can show up to five related NewsAPI articles. These are related
@@ -51,3 +47,7 @@ The result panel displays a cross-validated, calibrated model-confidence estimat
 for the predicted class. It is not the model's accuracy and does not establish
 whether the claim is true. The confidence model is created by running
 `py train_model.py` after changes to the training data or model pipeline.
+
+The browser notification setting can show an alert when a check finishes. It
+requires browser permission and the browser to remain open; it does not send
+background alerts after the browser is closed.

@@ -62,6 +62,29 @@ function showToast(message) {
 
 }
 
+function showCheckNotification(title) {
+  if (
+    !notificationToggle.checked
+    || !("Notification" in window)
+    || Notification.permission !== "granted"
+  ) {
+    return;
+  }
+
+  try {
+    const notification = new Notification(`Fake News Detector: ${title}`, {
+      body: "Your check is complete. Open the browser to view the result."
+    });
+    notification.addEventListener("click", () => {
+      window.focus();
+      notification.close();
+    });
+  } catch (error) {
+    console.error("Could not show browser notification:", error);
+    showToast("The browser could not display the notification.");
+  }
+}
+
 
 function isLoggedIn() {
   return localStorage.getItem("fncDemoLoggedIn") === "true";
@@ -394,15 +417,14 @@ function resetResultExtras() {
   articleDetails.classList.add("hidden");
   resultSources.classList.add("hidden");
   newsEvidence.classList.add("hidden");
+  newsEvidence.classList.remove("empty");
   evidenceList.innerHTML = "";
 }
 
 function renderNewsEvidence(evidence) {
   if (!evidence || typeof evidence !== "object") return;
 
-  evidenceStatus.textContent = evidence.message || "Related news articles are unavailable.";
   const articles = Array.isArray(evidence.articles) ? evidence.articles : [];
-
   evidenceList.innerHTML = articles
     .map((article) => {
       const safeUrl = safeHttpUrl(article.url);
@@ -427,6 +449,18 @@ function renderNewsEvidence(evidence) {
     })
     .join("");
 
+  const hasArticles = evidenceList.childElementCount > 0;
+  if (!evidence.available && !hasArticles) {
+    newsEvidence.classList.add("hidden");
+    newsEvidence.classList.remove("empty");
+    evidenceStatus.textContent = "";
+    return;
+  }
+
+  newsEvidence.classList.toggle("empty", !hasArticles);
+  evidenceStatus.textContent = hasArticles
+    ? evidence.message || "Related news coverage."
+    : "No related articles found. Try the search links below.";
   newsEvidence.classList.remove("hidden");
 }
 
@@ -605,6 +639,7 @@ async function investigate(value = input.value.trim()) {
         ]
       });
 
+      showCheckNotification("Check complete");
       return;
     }
 
@@ -653,6 +688,8 @@ async function investigate(value = input.value.trim()) {
 
     }
 
+    showCheckNotification(resultLabel);
+
   } catch (error) {
 
     console.error("ML connection error:", error);
@@ -673,9 +710,11 @@ async function investigate(value = input.value.trim()) {
         ? "The Flask API could not be reached."
         : error.message || "Unable to connect to the Python backend.",
       badge: "ERROR",
-      action: "Make sure Flask is running with: py app.py",
+      action: "Make sure Flask is running with: .\\venv\\Scripts\\python.exe app.py",
       checks: []
     });
+
+    showCheckNotification("Check could not be completed");
 
   }
 
@@ -1185,21 +1224,52 @@ $("logoutBtn").addEventListener("click", () => {
    NOTIFICATIONS
 ========================================================= */
 
-const savedNotifications = localStorage.getItem("fncNotifications");
+const savedNotifications = localStorage.getItem("fncNotifications") === "true";
+notificationToggle.checked = Boolean(
+  savedNotifications
+  && "Notification" in window
+  && Notification.permission === "granted"
+);
+localStorage.setItem("fncNotifications", notificationToggle.checked ? "true" : "false");
 
-if (savedNotifications !== null) {
-  notificationToggle.checked = savedNotifications === "true";
-}
+notificationToggle.addEventListener("change", async () => {
+  if (!notificationToggle.checked) {
+    localStorage.setItem("fncNotifications", "false");
+    showToast("Notifications disabled.");
+    return;
+  }
 
+  if (!("Notification" in window)) {
+    notificationToggle.checked = false;
+    localStorage.setItem("fncNotifications", "false");
+    showToast("This browser does not support notifications.");
+    return;
+  }
 
-notificationToggle.addEventListener("change", () => {
+  try {
+    const permission = Notification.permission === "granted"
+      ? "granted"
+      : await Notification.requestPermission();
 
-  const enabled = notificationToggle.checked;
+    if (permission !== "granted") {
+      notificationToggle.checked = false;
+      localStorage.setItem("fncNotifications", "false");
+      showToast(
+        permission === "denied"
+          ? "Allow notifications in your browser settings to enable them."
+          : "Notification permission was not granted."
+      );
+      return;
+    }
 
-  localStorage.setItem("fncNotifications", enabled ? "true" : "false");
-
-  showToast(enabled ? "Notifications enabled." : "Notifications disabled.");
-
+    localStorage.setItem("fncNotifications", "true");
+    showToast("You will be notified when a check finishes.");
+  } catch (error) {
+    console.error("Could not enable browser notifications:", error);
+    notificationToggle.checked = false;
+    localStorage.setItem("fncNotifications", "false");
+    showToast("Could not enable browser notifications.");
+  }
 });
 
 
