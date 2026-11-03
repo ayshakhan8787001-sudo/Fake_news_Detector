@@ -6,6 +6,8 @@ from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
+
 import app as detector
 import database
 
@@ -97,6 +99,36 @@ class HistoryApiTests(unittest.TestCase):
         ]
         self.assertEqual(model_outputs, [model_outputs[0]] * len(inputs))
 
+    def test_uncertainty_requires_a_stronger_decision_margin(self):
+        evidence = {
+            "available": False,
+            "provider": "NewsAPI",
+            "message": "Not configured",
+            "articles": [],
+        }
+        with patch.object(detector, "search_related_news", return_value=evidence):
+            with patch.object(
+                detector.model,
+                "decision_function",
+                return_value=np.array([0.20]),
+            ):
+                uncertain = self.client.post(
+                    "/predict",
+                    json={"text": "A sample short claim.", "is_url": False},
+                ).get_json()
+            with patch.object(
+                detector.model,
+                "decision_function",
+                return_value=np.array([0.23]),
+            ):
+                classified = self.client.post(
+                    "/predict",
+                    json={"text": "A sample short claim.", "is_url": False},
+                ).get_json()
+
+        self.assertTrue(uncertain["uncertain"])
+        self.assertFalse(classified["uncertain"])
+
     def test_empty_prediction_input_is_rejected(self):
         response = self.client.post("/predict", json={"text": " ", "is_url": False})
         self.assertEqual(response.status_code, 400)
@@ -178,6 +210,14 @@ class HistoryApiTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("private", response.get_json()["error"].lower())
+
+    def test_non_http_article_url_is_rejected(self):
+        response = self.client.post(
+            "/predict",
+            json={"text": "javascript:alert(1)", "is_url": True},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("public http", response.get_json()["error"].lower())
 
 
 if __name__ == "__main__":

@@ -201,8 +201,8 @@ function setAuthMode(mode) {
 
   $("authHeading").textContent = signup ? "Create Account" : "Sign In";
   $("authSubtitle").textContent = signup
-    ? "Create a profile in this browser."
-    : "Sign in using this browser.";
+    ? "Demo only — create a profile stored in this browser."
+    : "Demo only — no secure account or password check.";
   $("authSubmit").textContent = signup ? "Create Account" : "Login";
   $("authSubmit").dataset.mode = signup ? "signup" : "login";
   $("nameField").classList.toggle("hidden", !signup);
@@ -629,7 +629,7 @@ async function investigate(value = input.value.trim()) {
           ? "The article text did not produce a strong enough signal for a likely label."
           : "The model did not find a strong enough signal for a likely label.",
         badge: "UNCERTAIN",
-        action: "The model signal was not strong enough to choose TRUE or FAKE. Cross-check the claim with reliable sources.",
+        action: "The model compares word and phrase patterns with its training examples; it does not verify facts. Try the full claim and cross-check trusted sources.",
         confidence: data.confidence,
         checks: [
           { ok: false, icon: "fa-circle-question", text: "The model could not confidently choose TRUE or FAKE" },
@@ -688,7 +688,7 @@ async function investigate(value = input.value.trim()) {
 
     }
 
-    showCheckNotification(resultLabel);
+    showCheckNotification(prediction ? "LIKELY REAL" : "LIKELY FAKE");
 
   } catch (error) {
 
@@ -1160,6 +1160,10 @@ async function showHistory() {
     `;
 
     $("clearHistoryBtn").addEventListener("click", async () => {
+      if (!window.confirm("Clear investigation history shared by all users of this local app?")) {
+        return;
+      }
+
       try {
         const clearResponse = await fetch("/history", { method: "DELETE" });
         const clearResult = await clearResponse.json();

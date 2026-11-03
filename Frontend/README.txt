@@ -47,7 +47,31 @@ The result panel displays a cross-validated, calibrated model-confidence estimat
 for the predicted class. It is not the model's accuracy and does not establish
 whether the claim is true. The confidence model is created by running
 `py train_model.py` after changes to the training data or model pipeline.
+The uncertainty threshold is intentionally cautious: borderline model signals
+remain uncertain rather than being forced into a likely label. It is not a
+factual truth threshold, and short text can still be uncertain because it may
+contain too few word and phrase patterns for the model.
 
 The browser notification setting can show an alert when a check finishes. It
 requires browser permission and the browser to remain open; it does not send
 background alerts after the browser is closed.
+
+## Training evaluation and limitations
+`train_model.py` reports per-class precision/recall, confusion matrices, and
+calibrated confidence on a stratified random holdout. It also compares
+Logistic Regression with LinearSVC on the same random split and reports a
+publisher-held-out diagnostic when publisher data is available. The comparison
+does not automatically change the production classifier: LinearSVC remains the
+model saved for the website. Review class counts and per-class metrics instead
+of relying on accuracy alone; a single split is not a guarantee of performance
+on future news.
+
+Dataset preparation can be tested without rewriting the generated CSV by
+running `.\venv\Scripts\python.exe -m unittest discover -s tests`. The
+`make_dataset.py` command itself reads `IFND.csv` and overwrites
+`IFND_10000.csv`; `train_model.py` overwrites the saved model artifacts, so
+back up desired versions before running either command.
+
+This project is a local educational demo, not a production service. Browser-only
+sign-in is not authentication, investigation history is shared, and model
+predictions are not verified fact-checks.

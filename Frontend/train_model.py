@@ -12,6 +12,7 @@ import joblib
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, classification_report, confusion_matrix
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
 from sklearn.svm import LinearSVC
@@ -58,6 +59,7 @@ def evaluate(
     statements,
     labels,
     score_confidence=False,
+    classifier=None,
 ):
     """Fit preprocessing/model on training rows only and report held-out metrics."""
     vectorizer = make_vectorizer()
@@ -66,7 +68,11 @@ def evaluate(
     train_features = vectorizer.fit_transform(train_text)
     test_features = vectorizer.transform(test_text)
 
-    model = LinearSVC(random_state=RANDOM_STATE)
+    model = (
+        classifier
+        if classifier is not None
+        else LinearSVC(random_state=RANDOM_STATE)
+    )
     model.fit(train_features, labels.iloc[train_indices])
     predictions = model.predict(test_features)
     truth = labels.iloc[test_indices]
@@ -198,12 +204,23 @@ def main():
         stratify=labels,
     )
     evaluate(
-        "Stratified random 80/20 holdout",
+        "Stratified random 80/20 holdout - LinearSVC",
         train_indices,
         test_indices,
         statements,
         labels,
         score_confidence=True,
+    )
+    evaluate(
+        "Stratified random 80/20 holdout - Logistic Regression comparison",
+        train_indices,
+        test_indices,
+        statements,
+        labels,
+        classifier=LogisticRegression(
+            max_iter=1000,
+            random_state=RANDOM_STATE,
+        ),
     )
 
     if "Web" in data.columns:
