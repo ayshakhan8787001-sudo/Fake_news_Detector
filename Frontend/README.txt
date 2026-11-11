@@ -8,7 +8,7 @@
 - `news_detector.sqlite3` — automatically created local database file
 - `app.py` — Flask API, model inference, article extraction, and static-file routes
 - `train_model.py` — dataset evaluation and model artifact training
-- `make_dataset.py` — cleans and prepares the balanced training dataset
+- `make_dataset.py` — prepares a balanced dataset without `AUGMENT` rows
 
 ## Run on Windows
 1. Open a terminal in the `Frontend` folder.
@@ -66,11 +66,13 @@ model saved for the website. Review class counts and per-class metrics instead
 of relying on accuracy alone; a single split is not a guarantee of performance
 on future news.
 
-Dataset preparation can be tested without rewriting the generated CSV by
-running `.\venv\Scripts\python.exe -m unittest discover -s tests`. The
-`make_dataset.py` command itself reads `IFND.csv` and overwrites
-`IFND_10000.csv`; `train_model.py` overwrites the saved model artifacts, so
-back up desired versions before running either command.
+Dataset preparation can be tested without rewriting any CSV by running
+`.\venv\Scripts\python.exe -m unittest discover -s tests`. Running
+`make_dataset.py` reads `IFND.csv` and creates `IFND_10000_clean.csv`, excluding
+rows whose publisher is `AUGMENT`; it leaves `IFND.csv` and the existing
+`IFND_10000.csv` unchanged. `train_model.py` reads the clean output and
+overwrites the saved model artifacts, so back up desired versions before
+training.
 
 This project is a local educational demo, not a production service. Browser-only
 sign-in is not authentication, investigation history is shared, and model

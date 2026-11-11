@@ -99,7 +99,7 @@ class HistoryApiTests(unittest.TestCase):
         ]
         self.assertEqual(model_outputs, [model_outputs[0]] * len(inputs))
 
-    def test_uncertainty_requires_a_stronger_decision_margin(self):
+    def test_weak_decision_margin_triggers_uncertainty(self):
         evidence = {
             "available": False,
             "provider": "NewsAPI",
@@ -107,27 +107,228 @@ class HistoryApiTests(unittest.TestCase):
             "articles": [],
         }
         with patch.object(detector, "search_related_news", return_value=evidence):
-            with patch.object(
-                detector.model,
-                "decision_function",
-                return_value=np.array([0.20]),
-            ):
-                uncertain = self.client.post(
-                    "/predict",
-                    json={"text": "A sample short claim.", "is_url": False},
-                ).get_json()
-            with patch.object(
-                detector.model,
-                "decision_function",
-                return_value=np.array([0.23]),
-            ):
-                classified = self.client.post(
-                    "/predict",
-                    json={"text": "A sample short claim.", "is_url": False},
-                ).get_json()
+            with patch.object(detector.model, "predict", return_value=np.array([1])):
+                with patch.object(
+                    detector.confidence_model,
+                    "predict_proba",
+                    return_value=np.array([[0.1, 0.9]]),
+                ):
+                    with patch.object(
+                        detector.model,
+                        "decision_function",
+                        return_value=np.array([0.20]),
+                    ):
+                        uncertain = self.client.post(
+                            "/predict",
+                            json={
+                                "text": "A sample short claim with enough words to avoid the short input rule.",
+                                "is_url": False,
+                            },
+                        ).get_json()
+                    with patch.object(
+                        detector.model,
+                        "decision_function",
+                        return_value=np.array([0.23]),
+                    ):
+                        classified = self.client.post(
+                            "/predict",
+                            json={
+                                "text": "A sample short claim with enough words to avoid the short input rule.",
+                                "is_url": False,
+                            },
+                        ).get_json()
 
         self.assertTrue(uncertain["uncertain"])
         self.assertFalse(classified["uncertain"])
+
+    def test_prediction_confidence_and_model_disagreement(self):
+        evidence = {
+            "available": False,
+            "provider": "NewsAPI",
+            "message": "Not configured",
+            "articles": [],
+        }
+        cases = (
+            (1, [0.1, 0.9], False, 0.9),
+            (0, [0.9, 0.1], False, 0.9),
+            (1, [0.9, 0.1], True, 0.1),
+            (0, [0.1, 0.9], True, 0.1),
+        )
+
+        with patch.object(detector, "search_related_news", return_value=evidence):
+            for primary_prediction, probabilities, disagreement, expected_confidence in cases:
+                with self.subTest(
+                    primary_prediction=primary_prediction,
+                    probabilities=probabilities,
+                ):
+                    with patch.object(
+                        detector.model,
+                        "predict",
+                        return_value=np.array([primary_prediction]),
+                    ):
+                        with patch.object(
+                            detector.model,
+                            "decision_function",
+                            return_value=np.array([1.0]),
+                        ):
+                            with patch.object(
+                                detector.confidence_model,
+                                "predict_proba",
+                                return_value=np.array([probabilities]),
+                            ):
+                                result = self.client.post(
+                                    "/predict",
+                                    json={
+                                        "text": "A longer sample claim for checking model agreement behavior.",
+                                        "is_url": False,
+                                    },
+                                ).get_json()
+
+                    self.assertEqual(result["prediction"], bool(primary_prediction))
+                    self.assertEqual(result["uncertain"], disagreement)
+                    self.assertEqual(result["model_disagreement"], disagreement)
+                    self.assertAlmostEqual(result["confidence"], expected_confidence)
+
+    def test_opinion_like_short_input_is_uncertain_even_when_models_agree(self):
+        evidence = {
+            "available": False,
+            "provider": "NewsAPI",
+            "message": "Not configured",
+            "articles": [],
+        }
+        with patch.object(detector, "search_related_news", return_value=evidence):
+            with patch.object(detector.model, "predict", return_value=np.array([1])):
+                with patch.object(
+                    detector.model,
+                    "decision_function",
+                    return_value=np.array([1.0]),
+                ):
+                    with patch.object(
+                        detector.confidence_model,
+                        "predict_proba",
+                        return_value=np.array([[0.1, 0.9]]),
+                    ):
+                        result = self.client.post(
+                            "/predict",
+                            json={
+                                "text": "Narendra Modi has gone mad",
+                                "is_url": False,
+                            },
+                        ).get_json()
+
+        self.assertTrue(result["uncertain"])
+        self.assertTrue(result["short_input"])
+        self.assertFalse(result["model_disagreement"])
+        self.assertEqual(result["word_count"], 5)
+        self.assertEqual(result["confidence"], 0.9)
+
+    def test_short_factual_text_uses_model_uncertainty_not_word_count(self):
+        evidence = {
+            "available": False,
+            "provider": "NewsAPI",
+            "message": "Not configured",
+            "articles": [],
+        }
+        with patch.object(detector, "search_related_news", return_value=evidence):
+            with patch.object(detector.model, "predict", return_value=np.array([1])):
+                with patch.object(
+                    detector.model,
+                    "decision_function",
+                    return_value=np.array([1.0]),
+                ):
+                    with patch.object(
+                        detector.confidence_model,
+                        "predict_proba",
+                        return_value=np.array([[0.1, 0.9]]),
+                    ):
+                        result = self.client.post(
+                            "/predict",
+                            json={"text": "India won the 2024 T20 World Cup.", "is_url": False},
+                        ).get_json()
+
+        self.assertTrue(result["short_input"])
+        self.assertFalse(result["uncertain"])
+        self.assertIsNone(result["uncertain_reason"])
+        self.assertTrue(result["prediction"])
+
+    def test_opinion_like_text_is_uncertain_not_a_factual_verdict(self):
+        evidence = {
+            "available": False,
+            "provider": "NewsAPI",
+            "message": "Not configured",
+            "articles": [],
+        }
+        with patch.object(detector, "search_related_news", return_value=evidence):
+            with patch.object(detector.model, "predict", return_value=np.array([0])):
+                with patch.object(
+                    detector.model,
+                    "decision_function",
+                    return_value=np.array([-1.0]),
+                ):
+                    with patch.object(
+                        detector.confidence_model,
+                        "predict_proba",
+                        return_value=np.array([[0.99, 0.01]]),
+                    ):
+                        result = self.client.post(
+                            "/predict",
+                            json={
+                                "text": "This is the best government in India.",
+                                "is_url": False,
+                            },
+                        ).get_json()
+
+        self.assertTrue(result["uncertain"])
+        self.assertEqual(result["uncertain_reason"], "opinion_like")
+        self.assertIsNone(result["prediction"])
+
+    def test_ambiguous_text_is_uncertain_even_with_strong_model_signal(self):
+        evidence = {
+            "available": False,
+            "provider": "NewsAPI",
+            "message": "Not configured",
+            "articles": [],
+        }
+        with patch.object(detector, "search_related_news", return_value=evidence):
+            with patch.object(detector.model, "predict", return_value=np.array([1])):
+                with patch.object(
+                    detector.model,
+                    "decision_function",
+                    return_value=np.array([1.0]),
+                ):
+                    with patch.object(
+                        detector.confidence_model,
+                        "predict_proba",
+                        return_value=np.array([[0.1, 0.9]]),
+                    ):
+                        result = self.client.post(
+                            "/predict",
+                            json={
+                                "text": "Maybe the report is accurate after all.",
+                                "is_url": False,
+                            },
+                        ).get_json()
+
+        self.assertTrue(result["uncertain"])
+        self.assertEqual(result["uncertain_reason"], "ambiguous")
+        self.assertIsNone(result["prediction"])
+
+    def test_text_without_recognized_features_is_uncertain(self):
+        evidence = {
+            "available": False,
+            "provider": "NewsAPI",
+            "message": "Not configured",
+            "articles": [],
+        }
+        with patch.object(detector, "search_related_news", return_value=evidence):
+            result = self.client.post(
+                "/predict",
+                json={"text": "??? !!! ...", "is_url": False},
+            ).get_json()
+
+        self.assertTrue(result["uncertain"])
+        self.assertEqual(result["uncertain_reason"], "unrecognized_text")
+        self.assertIsNone(result["prediction"])
 
     def test_empty_prediction_input_is_rejected(self):
         response = self.client.post("/predict", json={"text": " ", "is_url": False})

@@ -99,6 +99,74 @@ function getProfile() {
   }
 }
 
+const ACCOUNT_STORAGE_KEY = "fncAccounts";
+const PASSWORD_HASH_ITERATIONS = 210_000;
+
+function normalizeEmail(email) {
+  return email.trim().toLowerCase();
+}
+
+function getAccounts() {
+  const savedAccounts = localStorage.getItem(ACCOUNT_STORAGE_KEY);
+  if (!savedAccounts) return [];
+
+  const accounts = JSON.parse(savedAccounts);
+  if (
+    !Array.isArray(accounts) ||
+    accounts.some((account) =>
+      !account ||
+      typeof account !== "object" ||
+      typeof account.email !== "string" ||
+      typeof account.salt !== "string" ||
+      !/^[0-9a-f]{32}$/i.test(account.salt) ||
+      typeof account.passwordHash !== "string" ||
+      !/^[0-9a-f]{64}$/i.test(account.passwordHash)
+    )
+  ) {
+    throw new Error("Saved account data is invalid. Clear this browser's saved account data and try again.");
+  }
+  return accounts;
+}
+
+function makePasswordSalt() {
+  if (!window.crypto?.subtle || !window.crypto?.getRandomValues) {
+    throw new Error("This browser cannot securely save demo credentials. Use the app on localhost in a modern browser.");
+  }
+
+  return Array.from(window.crypto.getRandomValues(new Uint8Array(16)))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function hashPassword(password, saltHex) {
+  const salt = new Uint8Array(saltHex.match(/.{2}/g).map((byte) => parseInt(byte, 16)));
+  const keyMaterial = await window.crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const derivedBits = await window.crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: PASSWORD_HASH_ITERATIONS,
+      hash: "SHA-256"
+    },
+    keyMaterial,
+    256
+  );
+
+  return Array.from(new Uint8Array(derivedBits))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function saveAccounts(accounts) {
+  localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(accounts));
+}
+
 
 function updateAuthUI() {
   const loggedIn = isLoggedIn();
@@ -201,8 +269,8 @@ function setAuthMode(mode) {
 
   $("authHeading").textContent = signup ? "Create Account" : "Sign In";
   $("authSubtitle").textContent = signup
-    ? "Demo only — create a profile stored in this browser."
-    : "Demo only — no secure account or password check.";
+    ? "Demo account stored only in this browser."
+    : "Sign in with the email and password saved in this browser.";
   $("authSubmit").textContent = signup ? "Create Account" : "Login";
   $("authSubmit").dataset.mode = signup ? "signup" : "login";
   $("nameField").classList.toggle("hidden", !signup);
@@ -220,12 +288,13 @@ authSwitchLink.addEventListener("click", () => {
 });
 
 
-$("authForm").addEventListener("submit", (event) => {
+$("authForm").addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const signup = $("authSubmit").dataset.mode === "signup";
-  const email = $("authEmail").value.trim();
+  const email = normalizeEmail($("authEmail").value);
   const password = $("authPassword").value;
+  const submitButton = $("authSubmit");
 
   if (!email || !password) {
     showToast("Please fill in all required fields.");
@@ -245,17 +314,72 @@ $("authForm").addEventListener("submit", (event) => {
       return;
     }
 
-    localStorage.setItem("fncProfile", JSON.stringify({ name, email }));
-  } else {
-    const oldProfile = getProfile();
-    localStorage.setItem("fncProfile", JSON.stringify({ name: oldProfile.name || "", email }));
   }
 
-  localStorage.setItem("fncDemoLoggedIn", "true");
-  $("authForm").reset();
-  updateAuthUI();
-  closeAuth();
-  showToast(signup ? "Account profile created in this browser." : "Signed in.");
+  submitButton.disabled = true;
+  try {
+    const accounts = getAccounts();
+    const existingAccount = accounts.find(
+      (account) => normalizeEmail(account.email || "") === email
+    );
+
+    if (signup && existingAccount) {
+      setAuthMode("login");
+      $("authEmail").value = email;
+      $("authPassword").value = "";
+      $("authPassword").focus();
+      showToast("You already have an account. Please sign in.");
+      return;
+    }
+
+    if (!signup && !existingAccount) {
+      showToast("Email or password is incorrect.");
+      return;
+    }
+
+    if (signup) {
+      const salt = makePasswordSalt();
+      const passwordHash = await hashPassword(password, salt);
+      const latestAccounts = getAccounts();
+
+      if (latestAccounts.some((account) => normalizeEmail(account.email || "") === email)) {
+        setAuthMode("login");
+        $("authEmail").value = email;
+        $("authPassword").value = "";
+        showToast("You already have an account. Please sign in.");
+        return;
+      }
+
+      saveAccounts([...latestAccounts, { name, email, salt, passwordHash }]);
+      $("authForm").reset();
+      setAuthMode("login");
+      $("authEmail").value = email;
+      $("authPassword").focus();
+      showToast("Account created successfully. Please sign in.");
+      return;
+    }
+
+    const passwordHash = await hashPassword(password, existingAccount.salt);
+    if (passwordHash !== existingAccount.passwordHash) {
+      showToast("Email or password is incorrect.");
+      return;
+    }
+
+    localStorage.setItem(
+      "fncProfile",
+      JSON.stringify({ name: existingAccount.name || "", email: existingAccount.email })
+    );
+    localStorage.setItem("fncDemoLoggedIn", "true");
+    $("authForm").reset();
+    updateAuthUI();
+    closeAuth();
+    showToast("Signed in.");
+  } catch (error) {
+    console.error("Could not complete demo account action:", error);
+    showToast(error.message || "Could not complete this account action.");
+  } finally {
+    submitButton.disabled = false;
+  }
 });
 
 
@@ -604,13 +728,21 @@ async function investigate(value = input.value.trim()) {
     }
 
     const prediction = data.prediction;
-
-    if (prediction !== true && prediction !== false) {
-      throw new Error("Prediction was not returned correctly by the backend.");
-    }
+    const abstained = [
+      "unrecognized_text",
+      "opinion_like",
+      "ambiguous"
+    ].includes(data.uncertain_reason);
 
     if (typeof data.uncertain !== "boolean") {
       throw new Error("Uncertainty status was not returned correctly by the backend.");
+    }
+
+    if (
+      (abstained && (!data.uncertain || prediction !== null)) ||
+      (!abstained && prediction !== true && prediction !== false)
+    ) {
+      throw new Error("Prediction was not returned correctly by the backend.");
     }
 
     const words = Number(data.word_count) || analysisInput.split(/\s+/).filter(Boolean).length;
@@ -621,18 +753,47 @@ async function investigate(value = input.value.trim()) {
       text: `${words} words analyzed`
     };
     if (data.uncertain) {
+      const uncertaintyMessages = {
+        unrecognized_text: {
+          reason: "There is not enough recognizable claim text to analyze.",
+          action: "Enter a meaningful claim or a few more details."
+        },
+        opinion_like: {
+          reason: "This sounds subjective or opinion-based; the model cannot verify opinions.",
+          action: "For a fact-check, enter a specific claim that can be checked against evidence."
+        },
+        ambiguous: {
+          reason: "The wording is unclear or uncertain.",
+          action: "Add context and state the specific claim you want to check."
+        },
+        model_disagreement: {
+          reason: "The model outputs point in different directions.",
+          action: "The model estimates are inconclusive. Check reliable sources; this is not a fact-check."
+        },
+        weak_signal: {
+          reason: "The model signal is too weak for a clear result.",
+          action: "Add context and check reliable sources; this is not a fact-check."
+        }
+      };
+      const uncertainty = uncertaintyMessages[data.uncertain_reason] || {
+        reason: "The model could not produce a clear result.",
+        action: "Add context and check reliable sources; this is not a fact-check."
+      };
+      const hideConfidence = [
+        "unrecognized_text",
+        "opinion_like",
+        "ambiguous"
+      ].includes(data.uncertain_reason);
       setResult({
         state: "uncertain",
         icon: "fa-circle-question",
         title: "UNCERTAIN",
-        subtitle: isUrl
-          ? "The article text did not produce a strong enough signal for a likely label."
-          : "The model did not find a strong enough signal for a likely label.",
-        badge: "UNCERTAIN",
-        action: "The model compares word and phrase patterns with its training examples; it does not verify facts. Try the full claim and cross-check trusted sources.",
-        confidence: data.confidence,
+        subtitle: `This result is uncertain. ${uncertainty.reason}`,
+        badge: "NOT VERIFIED",
+        action: uncertainty.action,
+        confidence: hideConfidence ? null : data.confidence,
         checks: [
-          { ok: false, icon: "fa-circle-question", text: "The model could not confidently choose TRUE or FAKE" },
+          { ok: false, icon: "fa-circle-question", text: uncertainty.reason },
           wordsCheck,
           ...(authorCheck ? [authorCheck] : []),
           { ok: false, icon: "fa-link", text: "Verify with independent, trusted sources" }
@@ -649,16 +810,14 @@ async function investigate(value = input.value.trim()) {
       setResult({
         state: "real",
         icon: "fa-shield-halved",
-        title: "LIKELY REAL",
-        subtitle: isUrl
-          ? "The linked article text leans toward TRUE in the ML model."
-          : "The model leans toward TRUE; this is not independent fact verification.",
-        badge: "LIKELY REAL",
-        action: "The model result is not independent fact verification. Cross-check important claims with reliable sources.",
+        title: "Leans TRUE",
+        subtitle: "This is a text-based estimate, not a fact-check.",
+        badge: "TEXT PATTERN",
+        action: "For important claims, check reliable sources before sharing.",
         confidence: data.confidence,
         checks: [
-          { ok: true, icon: "fa-check", text: "The model leans toward TRUE" },
-          { ok: true, icon: "fa-language", text: isUrl ? "Article text extracted from the supplied URL" : "Writing patterns match the TRUE class in the training data" },
+          { ok: true, icon: "fa-check", text: "The model's text analysis leans TRUE" },
+          ...(isUrl ? [{ ok: true, icon: "fa-file-lines", text: "Article text was read from the link" }] : []),
           wordsCheck,
           ...(authorCheck ? [authorCheck] : []),
           { ok: false, icon: "fa-link", text: "Verify with a trusted source before sharing" }
@@ -670,16 +829,14 @@ async function investigate(value = input.value.trim()) {
       setResult({
         state: "fake",
         icon: "fa-triangle-exclamation",
-        title: "LIKELY FAKE",
-        subtitle: isUrl
-          ? "The linked article text leans toward FAKE in the ML model."
-          : "The model leans toward FAKE; this is not independent fact verification.",
-        badge: "LIKELY FAKE",
-        action: "Check the original publisher and compare the claim with reliable independent sources before sharing.",
+        title: "Leans FAKE",
+        subtitle: "This is a text-based estimate, not a fact-check.",
+        badge: "TEXT PATTERN",
+        action: "Check reliable sources before deciding whether the claim is false.",
         confidence: data.confidence,
         checks: [
-          { ok: false, icon: "fa-circle-exclamation", text: "The model leans toward FAKE" },
-          { ok: false, icon: "fa-language", text: isUrl ? "Article text extracted from the supplied URL" : "Writing patterns match the FAKE class in the training data" },
+          { ok: false, icon: "fa-circle-exclamation", text: "The model's text analysis leans FAKE" },
+          ...(isUrl ? [{ ok: true, icon: "fa-file-lines", text: "Article text was read from the link" }] : []),
           wordsCheck,
           ...(authorCheck ? [authorCheck] : []),
           { ok: false, icon: "fa-link", text: "Do not share before checking the source" }
@@ -688,7 +845,7 @@ async function investigate(value = input.value.trim()) {
 
     }
 
-    showCheckNotification(prediction ? "LIKELY REAL" : "LIKELY FAKE");
+    showCheckNotification(prediction ? "Model leans TRUE" : "Model leans FAKE");
 
   } catch (error) {
 

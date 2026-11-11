@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FakeNewsCheck - Fake News Detector</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- ================= LOGIN ================= -->
+    <div id="loginPage" class="auth-page hidden">
+        <div class="auth-box">
+            <button class="close-btn" onclick="hideForms()">×</button>
+            <div class="brand">
+                <div class="brand-icon">✓</div>
+                <div class="brand-name">Fake<span>NewsCheck</span></div>
+            </div>
+
+            <h1>Welcome back</h1>
+            <p class="subtitle">Verify news before you believe it.</p>
+
+            <div class="field">
+                <label>Email</label>
+                <input type="email" id="loginEmail" placeholder="you@example.com">
+            </div>
+
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="loginPassword" placeholder="••••••••">
+            </div>
+
+            <button class="primary-btn" onclick="login()">Login</button>
+
+            <div class="switch">
+                Don't have an account?
+                <button onclick="showSignup()">Create account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= SIGNUP ================= -->
+    <div id="signupPage" class="auth-page hidden">
+        <div class="auth-box">
+            <button class="close-btn" onclick="hideForms()">×</button>
+            <div class="brand">
+                <div class="brand-icon">✓</div>
+                <div class="brand-name">Fake<span>NewsCheck</span></div>
+            </div>
+
+            <h1>Create account</h1>
+            <p class="subtitle">Start checking suspicious news.</p>
+
+            <div class="field">
+                <label>Name</label>
+                <input type="text" id="signupName" placeholder="Your name">
+            </div>
+
+            <div class="field">
+                <label>Email</label>
+                <input type="email" id="signupEmail" placeholder="you@example.com">
+            </div>
+
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="signupPassword" placeholder="Create password">
+            </div>
+
+            <button class="primary-btn" onclick="signup()">Create Account</button>
+
+            <div class="switch">
+                Already have an account?
+                <button onclick="showLogin()">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= DASHBOARD ================= -->
+    <div id="dashboard" class="app">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar" aria-hidden="true">
+            <button class="sidebar-close" type="button" onclick="closeSidebar()" aria-label="Close navigation">×</button>
+            <div class="sidebar-brand">
+                <div class="brand-icon">✓</div>
+                <span class="brand-name">Fake<span>NewsCheck</span></span>
+            </div>
+
+            <div class="nav-title">Main</div>
+            <button class="nav-btn active" onclick="openPage('home', this)">🏠 <span>Dashboard</span></button>
+            <button class="nav-btn" onclick="openPage('checker', this)">🔍 <span>News Checker</span></button>
+            <button class="nav-btn" onclick="openPage('history', this)">🕐 <span>History</span></button>
+
+            <div class="nav-title">Account</div>
+            <button class="nav-btn" onclick="openPage('settings', this)">⚙️ <span>Settings</span></button>
+            <button class="nav-btn" id="authBtn" onclick="showLoginPage()">🔓<span>Login</span></button>
+        </aside>
+
+        <!-- MAIN -->
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <button class="menu-toggle" type="button" onclick="toggleSidebar()" aria-label="Open navigation"
+                        aria-controls="sidebar" aria-expanded="false">⋯</button>
+                    <b id="topTitle">Dashboard</b>
+                    <br>
+                    <small>Fake news detection platform</small>
+                </div>
+
+                <div class="profile" id="profileSection" style="display: none;">
+                    <div class="avatar" id="avatar">U</div>
+                    <div>
+                        <b id="userName">User</b>
+                        <br>
+                        <small id="userEmail">user@email.com</small>
+                    </div>
+                </div>
+                <div id="guestMessage" class="guest-message">
+                    💡 <button onclick="showLoginPage()"
+                        style="background: none; border: none; color: rgb(156, 113, 57); cursor: pointer; text-decoration: underline; font-weight: bold;">Login
+                        or create account</button> to save your activity and track news checks!
+                </div>
+            </header>
+
+            <div class="content">
+
+                <!-- HOME -->
+                <section id="home" class="page-section active">
+                    <div id="loginPrompt" class="login-prompt hidden">
+                        <div class="prompt-content">
+                            <h3>📊 Track Your Activity</h3>
+                            <p>Login to save your analysis history and see your overall statistics. No account yet?
+                                Create one in seconds!</p>
+                            <div class="prompt-buttons">
+                                <button class="primary-btn" onclick="showLoginPage()">Login or Sign Up</button>
+                                <button class="secondary-btn" onclick="closeLoginPrompt()">Continue as Guest</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hero">
+                        <h1>Stay informed. Stay skeptical. 🧠</h1>
+                        <p>
+                            Analyze suspicious headlines and articles using FakeCheck.
+                            Get a quick credibility estimate before sharing information.
+                        </p>
+                    </div>
+
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-title">Articles Checked</div>
+                            <div class="stat-value" id="checkedCount">0</div>
+                            <div class="stat-change">Your activity</div>
+                        </div>
+
+                        <div class="stat">
+                            <div class="stat-title">Likely Genuine</div>
+                            <div class="stat-value" id="genuineCount">0</div>
+                            <div class="stat-change">Positive results</div>
+                        </div>
+
+                        <div class="stat">
+                            <div class="stat-title">Likely Fake</div>
+                            <div class="stat-value" id="fakeCount">0</div>
+                            <div class="stat-change">Needs attention</div>
+                        </div>
+                    </div>
+
+                    <div class="checker">
+                        <div class="checker-header">
+                            <div>
+                                <h2>Check a news story</h2>
+                                <p>Paste a headline or article below.</p>
+                            </div>
+                            <div class="badge">AI-style analysis</div>
+                        </div>
+
+                        <textarea id="newsText" placeholder="Paste suspicious news here..."></textarea>
+                        <button class="primary-btn analyze" onclick="analyzeNews()">✨ Analyze News</button>
+
+                        <div id="result" class="result hidden">
+                            <div class="result-top">
+                                <div>
+                                    <div class="result-status" id="resultStatus">Analysis Complete</div>
+                                    <small>Estimated credibility</small>
+                                </div>
+                                <div class="confidence" id="confidence">0%</div>
+                            </div>
+
+                            <div class="progress">
+                                <div id="progressBar" class="progress-bar"></div>
+                            </div>
+
+                            <div class="checks">
+                                <div class="check">✓ Language analysis</div>
+                                <div class="check">✓ Sensationalism check</div>
+                                <div class="check">✓ Source indicators</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="two-column">
+                        <div class="panel">
+                            <h3>Recent checks</h3>
+                            <div id="activityList">
+                                <div class="activity">
+                                    <div class="activity-title">No checks yet</div>
+                                    <div class="activity-time">Analyze your first article</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="panel">
+                            <h3>Spot misinformation</h3>
+
+                            <div class="tip">
+                                ⚠️ Be careful with headlines designed to make you angry or shocked.
+                            </div>
+
+                            <div class="tip">
+                                🔎 Check whether other reliable sources report the same story.
+                            </div>
+
+                            <div class="tip">
+                                📅 Always check the publication date before sharing.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- CHECKER -->
+                <section id="checker" class="page-section">
+                    <div class="simple-card">
+                        <h1>🔍 Fake News Checker</h1>
+                        <p>
+                            Use the dashboard checker to analyze a suspicious article.
+                        </p>
+                        <br>
+                        <button class="primary-btn analyze"
+                            onclick="openPage('home', document.querySelector('.nav-btn'))">
+                            Go to NewsChecker
+                        </button>
+                    </div>
+                </section>
+
+                <!-- HISTORY -->
+                <section id="history" class="page-section">
+                    <div id="historyLoginPrompt" class="simple-card" style="text-align: center;">
+                        <h1>🔐 Login Required</h1>
+                        <p style="margin-bottom: 20px;">
+                            Create an account or login to save your analysis history and track your activity over time.
+                        </p>
+                        <button class="primary-btn" onclick="showLoginPage()" style="display: inline-block;">Login or
+                            Sign Up</button>
+                    </div>
+                    <div id="historyCard" class="simple-card" style="display: none;">
+                        <h1>🕐 Checking History</h1>
+                        <p>
+                            Your recently analyzed news stories will appear here.
+                        </p>
+                        <br>
+                        <div id="historyList">
+                            No history yet.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SETTINGS -->
+                <!-- SETTINGS -->
+                <section id="settings" class="page-section">
+
+                    <div class="simple-card settings-card">
+
+                        <h1>⚙️ Settings</h1>
+                        <p>Manage your account and preferences.</p>
+
+                        <!-- PROFILE -->
+                        <div class="settings-section">
+
+                            <div class="settings-heading">
+                                <span class="settings-icon">👤</span>
+
+                                <div>
+                                    <h3>Profile</h3>
+                                    <p>Manage your basic account information.</p>
+                                </div>
+                            </div>
+
+                            <div class="settings-row">
+
+                                <div class="settings-field">
+                                    <label>Name</label>
+                                    <input type="text" id="settingsName" placeholder="Your name">
+                                </div>
+
+                                <div class="settings-field">
+                                    <label>Email</label>
+                                    <input type="email" id="settingsEmailInput" placeholder="you@example.com" disabled>
+                                </div>
+
+                            </div>
+
+                            <button class="secondary-btn settings-btn" onclick="saveProfile()">
+                                Save Profile
+                            </button>
+
+                        </div>
+
+
+                        <!-- APPEARANCE -->
+                        <div class="settings-section">
+
+                            <div class="settings-heading">
+                                <span class="settings-icon">🎨</span>
+
+                                <div>
+                                    <h3>Appearance</h3>
+                                    <p>Choose how FakeNewsCheck looks.</p>
+                                </div>
+                            </div>
+
+                            <div class="settings-option">
+
+                                <div>
+                                    <b>Light / Dark Mode</b>
+                                    <small>Switch between light and dark mode.</small>
+                                </div>
+
+                                <label class="switch-toggle">
+                                    <input type="checkbox" id="appearanceToggle" onchange="toggleAppearance()">
+                                    <span class="slider"></span>
+                                </label>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- LANGUAGE -->
+                        <div class="settings-section">
+
+                            <div class="settings-heading">
+                                <span class="settings-icon">🌐</span>
+
+                                <div>
+                                    <h3>Language</h3>
+                                    <p>Select your preferred language.</p>
+                                </div>
+                            </div>
+
+                            <div class="settings-option">
+
+                                <div>
+                                    <b>Interface Language</b>
+                                    <small>Choose the language used by FakeCheck.</small>
+                                </div>
+
+                                <select id="languageSelect" onchange="saveLanguage()">
+                                    <option value="English">English</option>
+                                    <option value="Hindi">Hindi</option>
+                                </select>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- NOTIFICATIONS -->
+                        <div class="settings-section">
+
+                            <div class="settings-heading">
+                                <span class="settings-icon">🔔</span>
+
+                                <div>
+                                    <h3>Notifications</h3>
+                                    <p>Manage your notification preferences.</p>
+                                </div>
+                            </div>
+
+                            <div class="settings-option">
+
+                                <div>
+                                    <b>Activity Notifications</b>
+                                    <small>Turn activity notifications on or off.</small>
+                                </div>
+
+                                <label class="switch-toggle">
+                                    <input type="checkbox" id="notificationToggle" checked
+                                        onchange="toggleNotifications()">
+                                    <span class="slider"></span>
+                                </label>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- HISTORY & DATA -->
+                        <div class="settings-section">
+
+                            <div class="settings-heading">
+                                <span class="settings-icon">🗂️</span>
+
+                                <div>
+                                    <h3>History & Data</h3>
+                                    <p>Manage your saved analysis data.</p>
+                                </div>
+                            </div>
+
+                            <div class="settings-option">
+
+                                <div>
+                                    <b>Clear Analysis History</b>
+                                    <small>Delete all your saved news analysis history.</small>
+                                </div>
+
+                                <button class="danger-btn" onclick="clearHistory()">
+                                    Clear History
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- SECURITY -->
+                        <div class="settings-section">
+
+                            <div class="settings-heading">
+                                <span class="settings-icon">🔐</span>
+
+                                <div>
+                                    <h3>Security</h3>
+                                    <p>Manage your account password.</p>
+                                </div>
+                            </div>
+
+                            <div class="settings-password">
+
+                                <label>New Password</label>
+
+                                <input type="password" id="newPassword" placeholder="Enter new password">
+
+                                <button class="secondary-btn settings-btn" onclick="changePassword()">
+                                    Change Password
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- ABOUT FAKECHECK -->
+                        <div class="settings-section">
+
+                            <div class="settings-heading">
+                                <span class="settings-icon">ℹ️</span>
+
+                                <div>
+                                    <h3>About FakeNewsCheck</h3>
+                                    <p>About our fake news detection platform.</p>
+                                </div>
+                            </div>
+
+                            <p class="settings-text">
+                                FakeCheck is a fake news detection platform that
+                                analyzes news content and provides an estimated
+                                credibility result.
+                            </p>
+
+                        </div>
+
+
+                        <!-- DISCLAIMER -->
+                        <div class="settings-section disclaimer">
+
+                            <div class="settings-heading">
+                                <span class="settings-icon">⚠️</span>
+
+                                <div>
+                                    <h3>Disclaimer</h3>
+                                    <p>Important information about our predictions.</p>
+                                </div>
+                            </div>
+
+                            <p class="settings-text">
+                                FakeNewsCheck provides estimated results based on news
+                                analysis. These results do not guarantee that the
+                                information is factually true or false. Always verify
+                                important information using reliable sources.
+                            </p>
+
+                        </div>
+
+
+                        <!-- ACCOUNT -->
+                        <div class="settings-section account-section">
+
+                            <div class="settings-heading">
+                                <span class="settings-icon">🚪</span>
+
+                                <div>
+                                    <h3>Account</h3>
+                                    <p>Manage your account session.</p>
+                                </div>
+                            </div>
+
+                            <button class="danger-btn logout-settings" onclick="logout()">
+                                Logout
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+            </div>
+        </main>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>

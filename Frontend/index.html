@@ -280,7 +280,7 @@
           <div class="confidence-heading">
             <div>
               <span class="confidence-label">MODEL ESTIMATE</span>
-              <p>How strongly the text matches patterns in its training examples</p>
+              <p>An estimate for the model's label, not a measure of truth</p>
             </div>
             <strong id="confidenceValue">--%</strong>
           </div>
@@ -295,7 +295,7 @@
           >
             <span id="confidenceBar"></span>
           </div>
-          <small>This score describes the model's label, not the chance that the claim is true.</small>
+          <small>This score cannot confirm whether the claim is true or false.</small>
         </section>
 
         <section class="article-details hidden" id="articleDetails" aria-label="Fetched article details">
@@ -395,8 +395,7 @@
         <article class="about-card">
           <i class="fa-solid fa-microchip"></i>
           <h3>How it works</h3>
-          <p>Your text is sent to a machine learning model that compares its writing patterns with the training data
-            and returns a likely real, likely fake, or uncertain label.</p>
+          <p>The model uses patterns learned from its training data to classify the text as likely real, likely fake, or uncertain. This is a machine-learning estimate, not a fact-check: it does not verify whether a claim is true.</p>
         </article>
 
         <article class="about-card">
@@ -492,7 +491,7 @@
         </p>
 
         <p class="auth-privacy" id="authPrivacy">
-          Demo only: your profile stays in this browser. Passwords are not stored or verified.
+          Demo only: accounts are stored in this browser, and passwords are hashed locally. This is not secure server-side authentication.
         </p>
 
       </div>

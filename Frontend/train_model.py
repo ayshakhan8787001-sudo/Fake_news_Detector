@@ -19,7 +19,7 @@ from sklearn.svm import LinearSVC
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_PATH = BASE_DIR / "IFND_10000.csv"
+DATA_PATH = BASE_DIR / "IFND_10000_clean.csv"
 MODEL_PATH = BASE_DIR / "model.pkl"
 VECTORIZER_PATH = BASE_DIR / "vectorizer.pkl"
 CONFIDENCE_MODEL_PATH = BASE_DIR / "confidence_model.pkl"
@@ -113,6 +113,13 @@ def load_and_clean_data():
         raise ValueError(f"Dataset missing required columns: {sorted(missing)}")
     if "Web" not in data.columns:
         print("Publisher-held-out evaluation unavailable: dataset has no Web column.")
+    else:
+        is_augment = data["Web"].fillna("").astype(str).str.strip().str.casefold().eq("augment")
+        if is_augment.any():
+            raise ValueError(
+                "Training data contains AUGMENT rows. Run make_dataset.py to "
+                "create IFND_10000_clean.csv before training."
+            )
 
     print(f"Dataset loaded: {DATA_PATH}")
     print(f"Input rows: {len(data)}")

@@ -20,6 +20,11 @@ def prepare_dataset(data, sample_size=5000, random_state=42):
         raise ValueError(f"Dataset missing required columns: {sorted(missing)}")
 
     data = data.copy()
+    if "Web" in data.columns:
+        is_augment = data["Web"].fillna("").astype(str).str.strip().str.casefold().eq("augment")
+        print("AUGMENT rows excluded:", int(is_augment.sum()))
+        data = data.loc[~is_augment].copy()
+
     data["Label"] = data["Label"].astype(str).str.strip().str.casefold()
     data = data[data["Label"].isin(["true", "fake"])].copy()
     print("\nAfter removing invalid labels:")
@@ -68,14 +73,14 @@ def main():
     print("Total records:", len(data))
 
     balanced_data = prepare_dataset(data)
-    balanced_data.to_csv("IFND_10000.csv", index=False)
+    balanced_data.to_csv("IFND_10000_clean.csv", index=False)
     print("\n==============================")
     print("DATASET CREATED SUCCESSFULLY")
     print("==============================")
     print("Total records:", len(balanced_data))
     print("\nFinal distribution:")
     print(balanced_data["Label"].value_counts())
-    print("\nFile created: IFND_10000.csv")
+    print("\nFile created: IFND_10000_clean.csv")
 
 
 if __name__ == "__main__":

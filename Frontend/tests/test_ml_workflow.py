@@ -45,6 +45,26 @@ class DatasetPreparationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Cannot create a balanced"):
                 prepare_dataset(source, sample_size=2)
 
+    def test_prepare_dataset_excludes_augment_rows_without_mutating_source(self):
+        source = pd.DataFrame(
+            [
+                {"Statement": "True claim one", "Label": "true", "Web": "NEWS"},
+                {"Statement": "True claim two", "Label": "true", "Web": "NEWS"},
+                {"Statement": "Fake claim one", "Label": "fake", "Web": "NEWS"},
+                {"Statement": "Fake claim two", "Label": "fake", "Web": "NEWS"},
+                {"Statement": "Augmented fake one", "Label": "fake", "Web": "AUGMENT"},
+                {"Statement": "Augmented fake two", "Label": "fake", "Web": "AUGMENT"},
+            ]
+        )
+
+        with redirect_stdout(io.StringIO()):
+            result = prepare_dataset(source, sample_size=2)
+
+        self.assertEqual(len(source), 6)
+        self.assertEqual(len(result), 4)
+        self.assertEqual(result["Label"].str.casefold().value_counts().to_dict(), {"true": 2, "fake": 2})
+        self.assertFalse(result["Web"].str.casefold().eq("augment").any())
+
 
 class ModelEvaluationTests(unittest.TestCase):
     def test_evaluate_reports_metrics_for_both_linear_classifiers(self):

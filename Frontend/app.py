@@ -34,6 +34,16 @@ vectorizer = joblib.load(FRONTEND_DIR / "vectorizer.pkl")
 MAX_PAGE_BYTES = 1_000_000
 MAX_INPUT_CHARS = 20_000
 UNCERTAIN_MARGIN_THRESHOLD = math.log(1.25)
+MIN_WORD_COUNT_FOR_CONFIDENT_RESULT = 8
+OPINION_CUE_PATTERN = re.compile(
+    r"\b(?:in my opinion|i think|i believe|i feel|my favorite|the best|the worst|"
+    r"best|worst|greatest|amazing|wonderful|terrible|awful|stupid|crazy)\b"
+    r"|\bhas gone mad\b"
+)
+AMBIGUITY_CUE_PATTERN = re.compile(
+    r"\b(?:maybe|perhaps|possibly|might|could be|seems?|apparently|allegedly|"
+    r"reportedly|not sure|unclear)\b"
+)
 NEWSAPI_KEY = os.environ.get("NEWSAPI_KEY", "").strip()
 
 
@@ -409,12 +419,44 @@ def predict():
         margin = abs(float(model.decision_function(text_vector)[0]))
         probabilities = confidence_model.predict_proba(text_vector)[0]
         prediction_class_index = list(confidence_model.classes_).index(prediction)
+        calibrated_prediction = confidence_model.classes_[probabilities.argmax()]
+        model_disagreement = calibrated_prediction != prediction
+        word_count = len(news_text.split())
+        short_input = word_count < MIN_WORD_COUNT_FOR_CONFIDENT_RESULT
+        no_recognized_features = text_vector.nnz == 0
+        opinion_like = bool(OPINION_CUE_PATTERN.search(model_text))
+        ambiguous = bool(AMBIGUITY_CUE_PATTERN.search(model_text))
+        weak_signal = margin < UNCERTAIN_MARGIN_THRESHOLD
+        if no_recognized_features:
+            uncertainty_reason = "unrecognized_text"
+        elif opinion_like:
+            uncertainty_reason = "opinion_like"
+        elif ambiguous:
+            uncertainty_reason = "ambiguous"
+        elif model_disagreement:
+            uncertainty_reason = "model_disagreement"
+        elif weak_signal:
+            uncertainty_reason = "weak_signal"
+        else:
+            uncertainty_reason = None
+        uncertain = uncertainty_reason is not None
 
         result = {
-            "prediction": bool(prediction == 1),
-            "uncertain": margin < UNCERTAIN_MARGIN_THRESHOLD,
+            "prediction": (
+                None
+                if uncertainty_reason in {
+                    "unrecognized_text",
+                    "opinion_like",
+                    "ambiguous",
+                }
+                else bool(prediction == 1)
+            ),
+            "uncertain": bool(uncertain),
+            "uncertain_reason": uncertainty_reason,
+            "model_disagreement": bool(model_disagreement),
+            "short_input": bool(short_input),
             "confidence": float(probabilities[prediction_class_index]),
-            "word_count": len(news_text.split()),
+            "word_count": word_count,
         }
 
         if article_details:
