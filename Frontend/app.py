@@ -37,9 +37,11 @@ UNCERTAIN_MARGIN_THRESHOLD = math.log(1.25)
 MIN_WORD_COUNT_FOR_CONFIDENT_RESULT = 8
 OPINION_CUE_PATTERN = re.compile(
     r"\b(?:in my opinion|i think|i believe|i feel|my favorite|the best|the worst|"
-    r"best|worst|greatest|amazing|wonderful|terrible|awful|stupid|crazy)\b"
+    r"best|worst|greatest|amazing|wonderful|beautiful|handsome|ugly|prettiest|"
+    r"terrible|awful|stupid|crazy)\b"
     r"|\bhas gone mad\b"
 )
+HINDI_SCRIPT_PATTERN = re.compile(r"[\u0900-\u097f]")
 AMBIGUITY_CUE_PATTERN = re.compile(
     r"\b(?:maybe|perhaps|possibly|might|could be|seems?|apparently|allegedly|"
     r"reportedly|not sure|unclear)\b"
@@ -424,10 +426,13 @@ def predict():
         word_count = len(news_text.split())
         short_input = word_count < MIN_WORD_COUNT_FOR_CONFIDENT_RESULT
         no_recognized_features = text_vector.nnz == 0
+        unsupported_language = bool(HINDI_SCRIPT_PATTERN.search(model_text))
         opinion_like = bool(OPINION_CUE_PATTERN.search(model_text))
         ambiguous = bool(AMBIGUITY_CUE_PATTERN.search(model_text))
         weak_signal = margin < UNCERTAIN_MARGIN_THRESHOLD
-        if no_recognized_features:
+        if unsupported_language:
+            uncertainty_reason = "unsupported_language"
+        elif no_recognized_features:
             uncertainty_reason = "unrecognized_text"
         elif opinion_like:
             uncertainty_reason = "opinion_like"
@@ -446,6 +451,7 @@ def predict():
                 None
                 if uncertainty_reason in {
                     "unrecognized_text",
+                    "unsupported_language",
                     "opinion_like",
                     "ambiguous",
                 }

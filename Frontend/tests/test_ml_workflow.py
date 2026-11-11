@@ -11,6 +11,25 @@ from train_model import evaluate
 
 
 class DatasetPreparationTests(unittest.TestCase):
+    def test_prepare_dataset_uses_all_eligible_rows_when_sample_size_is_unset(self):
+        source = pd.DataFrame(
+            [
+                {"Statement": "True claim one", "Label": "true", "Web": "NEWS"},
+                {"Statement": "True claim two", "Label": "true", "Web": "NEWS"},
+                {"Statement": "True claim three", "Label": "true", "Web": "NEWS"},
+                {"Statement": "Fake claim one", "Label": "fake", "Web": "NEWS"},
+                {"Statement": "Fake claim two", "Label": "fake", "Web": "NEWS"},
+                {"Statement": "Augmented fake", "Label": "fake", "Web": "AUGMENT"},
+            ]
+        )
+
+        with redirect_stdout(io.StringIO()):
+            result = prepare_dataset(source, sample_size=None)
+
+        self.assertEqual(len(result), 4)
+        self.assertEqual(result["Label"].value_counts().to_dict(), {"true": 2, "fake": 2})
+        self.assertFalse(result["Web"].str.casefold().eq("augment").any())
+
     def test_prepare_dataset_removes_invalid_conflicting_and_duplicate_rows(self):
         source = pd.DataFrame(
             [
@@ -33,7 +52,7 @@ class DatasetPreparationTests(unittest.TestCase):
         self.assertEqual(set(result.columns), set(source.columns))
         self.assertEqual(len(source), 7)
 
-    def test_prepare_dataset_rejects_unavailable_class_sample(self):
+    def test_prepare_dataset_uses_largest_balanced_sample_when_target_unavailable(self):
         source = pd.DataFrame(
             [
                 {"Statement": "One true example", "Label": "true"},
@@ -41,9 +60,21 @@ class DatasetPreparationTests(unittest.TestCase):
             ]
         )
 
+        with redirect_stdout(io.StringIO()) as output:
+            result = prepare_dataset(source, sample_size=2)
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result["Label"].value_counts().to_dict(), {"true": 1, "fake": 1})
+        self.assertIn("creating an equally sized sample", output.getvalue())
+
+    def test_prepare_dataset_rejects_a_missing_class(self):
+        source = pd.DataFrame(
+            [{"Statement": "Only true example", "Label": "true"}]
+        )
+
         with redirect_stdout(io.StringIO()):
-            with self.assertRaisesRegex(ValueError, "Cannot create a balanced"):
-                prepare_dataset(source, sample_size=2)
+            with self.assertRaisesRegex(ValueError, "one or both classes have no"):
+                prepare_dataset(source, sample_size=1)
 
     def test_prepare_dataset_excludes_augment_rows_without_mutating_source(self):
         source = pd.DataFrame(

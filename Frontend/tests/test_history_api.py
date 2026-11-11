@@ -282,6 +282,26 @@ class HistoryApiTests(unittest.TestCase):
         self.assertEqual(result["uncertain_reason"], "opinion_like")
         self.assertIsNone(result["prediction"])
 
+    def test_beauty_opinion_is_uncertain_not_a_fake_news_verdict(self):
+        evidence = {
+            "available": False,
+            "provider": "NewsAPI",
+            "message": "Not configured",
+            "articles": [],
+        }
+        with patch.object(detector, "search_related_news", return_value=evidence):
+            result = self.client.post(
+                "/predict",
+                json={
+                    "text": "This is the most beautiful city",
+                    "is_url": False,
+                },
+            ).get_json()
+
+        self.assertTrue(result["uncertain"])
+        self.assertEqual(result["uncertain_reason"], "opinion_like")
+        self.assertIsNone(result["prediction"])
+
     def test_ambiguous_text_is_uncertain_even_with_strong_model_signal(self):
         evidence = {
             "available": False,
@@ -328,6 +348,23 @@ class HistoryApiTests(unittest.TestCase):
 
         self.assertTrue(result["uncertain"])
         self.assertEqual(result["uncertain_reason"], "unrecognized_text")
+        self.assertIsNone(result["prediction"])
+
+    def test_hindi_text_is_not_given_an_english_model_verdict(self):
+        evidence = {
+            "available": False,
+            "provider": "NewsAPI",
+            "message": "Not configured",
+            "articles": [],
+        }
+        with patch.object(detector, "search_related_news", return_value=evidence):
+            result = self.client.post(
+                "/predict",
+                json={"text": "यह एक हिंदी समाचार दावा है।", "is_url": False},
+            ).get_json()
+
+        self.assertTrue(result["uncertain"])
+        self.assertEqual(result["uncertain_reason"], "unsupported_language")
         self.assertIsNone(result["prediction"])
 
     def test_empty_prediction_input_is_rejected(self):

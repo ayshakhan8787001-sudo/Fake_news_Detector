@@ -68,12 +68,36 @@ on future news.
 
 Dataset preparation can be tested without rewriting any CSV by running
 `.\venv\Scripts\python.exe -m unittest discover -s tests`. Running
-`make_dataset.py` reads `IFND.csv` and creates `IFND_10000_clean.csv`, excluding
-rows whose publisher is `AUGMENT`; it leaves `IFND.csv` and the existing
-`IFND_10000.csv` unchanged. `train_model.py` reads the clean output and
-overwrites the saved model artifacts, so back up desired versions before
-training.
+`make_dataset.py` reads `IFND.csv` and creates `IFND_balanced_clean.csv`,
+excluding rows whose publisher is `AUGMENT`, conflicting duplicate claims, and
+same-label duplicates. By default it uses the full eligible minority class and
+randomly selects the same number of examples from the majority class. In the
+current source data, this produces 7,338 TRUE and 7,338 FAKE examples (14,676
+total); counts can change as the source data changes. It leaves `IFND.csv` and
+the existing `IFND_10000.csv` unchanged. `train_model.py` reads this balanced
+output and overwrites the saved model artifacts, so back up desired versions
+before training.
 
 This project is a local educational demo, not a production service. Browser-only
 sign-in is not authentication, investigation history is shared, and model
 predictions are not verified fact-checks.
+
+The interface can be switched to Hindi, but the classifier is trained on
+English-language text. Hindi-script claims are therefore marked uncertain
+instead of being given an English-model verdict; translate a claim into English
+before checking it. Article titles and source content remain in their original
+language.
+
+Dataset preparation reads the full `IFND.csv`, removes `AUGMENT` rows and
+conflicting/duplicate statements, then samples equal numbers from both classes.
+Do not use the already sampled `IFND_10000.csv` as the source for this step:
+many of its fake examples are `AUGMENT` rows, reducing the available fake
+examples. When an explicit sample size is requested, the builder emits the
+largest available balanced sample up to that size and reports its size.
+
+Increasing the training set to the largest balanced sample uses all eligible
+FAKE records and an equal number of TRUE records. This can improve coverage but
+does not guarantee better future accuracy: label quality, source/publisher
+differences, and evaluation methodology also matter. In particular, balanced
+training data prevents the model from favoring a majority training label but
+does not prove predictions are unbiased or reflect real-world class frequency.

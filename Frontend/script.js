@@ -40,6 +40,19 @@ const settingsActionSubtitle = $("settingsActionSubtitle");
 const settingsActionContent = $("settingsActionContent");
 
 let toastTimer;
+let activeLanguage = "English";
+
+function translateText(value) {
+  const text = String(value ?? "");
+  const messages = translations[activeLanguage]?.messages || {};
+  if (messages[text]) return messages[text];
+  if (activeLanguage !== "Hindi") return text;
+
+  return Object.entries(messages)
+    .sort(([first], [second]) => second.length - first.length)
+    .reduce((translated, [source, target]) => translated.replaceAll(source, target), text)
+    .replace(/\b(\d+) words analyzed\b/g, "$1 शब्दों का विश्लेषण किया गया");
+}
 /* =========================================================
    TOAST
 ========================================================= */
@@ -51,7 +64,7 @@ function showToast(message) {
 
   if (!toast || !toastText) return;
 
-  toastText.textContent = message;
+  toastText.textContent = translateText(message);
   toast.classList.add("show");
 
   clearTimeout(toastTimer);
@@ -73,7 +86,7 @@ function showCheckNotification(title) {
 
   try {
     const notification = new Notification(`Fake News Detector: ${title}`, {
-      body: "Your check is complete. Open the browser to view the result."
+      body: translateText("Your check is complete. Open the browser to view the result.")
     });
     notification.addEventListener("click", () => {
       window.focus();
@@ -208,6 +221,7 @@ function applyTheme(dark) {
 
 darkToggle.addEventListener("change", () => {
   applyTheme(darkToggle.checked);
+  settingsPanel.classList.remove("open");
 });
 
 
@@ -267,18 +281,18 @@ authModal.addEventListener("click", (event) => {
 function setAuthMode(mode) {
   const signup = mode === "signup";
 
-  $("authHeading").textContent = signup ? "Create Account" : "Sign In";
-  $("authSubtitle").textContent = signup
+  $("authHeading").textContent = translateText(signup ? "Create Account" : "Sign In");
+  $("authSubtitle").textContent = translateText(signup
     ? "Demo account stored only in this browser."
-    : "Sign in with the email and password saved in this browser.";
-  $("authSubmit").textContent = signup ? "Create Account" : "Login";
+    : "Sign in with the email and password saved in this browser.");
+  $("authSubmit").textContent = translateText(signup ? "Create Account" : "Login");
   $("authSubmit").dataset.mode = signup ? "signup" : "login";
   $("nameField").classList.toggle("hidden", !signup);
   $("confirmField").classList.toggle("hidden", !signup);
   $("loginOptions").classList.toggle("hidden", signup);
 
-  $("switchPrompt").textContent = signup ? "Already have an account?" : "Need an account?";
-  authSwitchLink.textContent = signup ? "Sign In" : "Create one";
+  $("switchPrompt").textContent = translateText(signup ? "Already have an account?" : "Need an account?");
+  authSwitchLink.textContent = translateText(signup ? "Sign In" : "Create one");
   authSwitchLink.dataset.auth = signup ? "login" : "signup";
 }
 
@@ -475,7 +489,7 @@ function renderChecks(items) {
   resultChecks.innerHTML = items.map((item) => `
     <li class="${item.ok ? "ok" : "warn"}">
       <span class="check-icon"><i class="fa-solid ${item.icon}"></i></span>
-      <span>${escapeHTML(item.text)}</span>
+      <span>${escapeHTML(translateText(item.text))}</span>
       <i class="fa-solid ${item.ok ? "fa-check" : "fa-triangle-exclamation"} check-mark"></i>
     </li>
   `).join("");
@@ -583,8 +597,8 @@ function renderNewsEvidence(evidence) {
 
   newsEvidence.classList.toggle("empty", !hasArticles);
   evidenceStatus.textContent = hasArticles
-    ? evidence.message || "Related news coverage."
-    : "No related articles found. Try the search links below.";
+    ? translateText(evidence.message || "Related news coverage.")
+    : translateText("No related articles found. Try the search links below.");
   newsEvidence.classList.remove("hidden");
 }
 
@@ -602,11 +616,11 @@ function setResult({
  resultPopup.className = "result-popup" + (state ? " " + state : "");
   resultIconI.className = "fa-solid " + icon;
 
-  resultTitle.textContent = title;
-  signalText.textContent = subtitle;
-  actionText.textContent = action;
+  resultTitle.textContent = translateText(title);
+  signalText.textContent = translateText(subtitle);
+  actionText.textContent = translateText(action);
 
-  resultBadge.textContent = badge;
+  resultBadge.textContent = translateText(badge);
   resultBadge.className = "result-badge" + (state ? " " + state : "");
 
   setConfidence(confidence);
@@ -730,6 +744,7 @@ async function investigate(value = input.value.trim()) {
     const prediction = data.prediction;
     const abstained = [
       "unrecognized_text",
+      "unsupported_language",
       "opinion_like",
       "ambiguous"
     ].includes(data.uncertain_reason);
@@ -754,6 +769,10 @@ async function investigate(value = input.value.trim()) {
     };
     if (data.uncertain) {
       const uncertaintyMessages = {
+        unsupported_language: {
+          reason: "Hindi text is not currently supported because the model was trained on English text.",
+          action: "Translate the claim into English before checking it; this model does not verify facts."
+        },
         unrecognized_text: {
           reason: "There is not enough recognizable claim text to analyze.",
           action: "Enter a meaningful claim or a few more details."
@@ -781,6 +800,7 @@ async function investigate(value = input.value.trim()) {
       };
       const hideConfidence = [
         "unrecognized_text",
+        "unsupported_language",
         "opinion_like",
         "ambiguous"
       ].includes(data.uncertain_reason);
@@ -941,14 +961,14 @@ document.querySelectorAll(".method-card").forEach((card) => {
 
     if (method === "link") {
 
-      input.placeholder = "Paste the article URL here...";
+      input.placeholder = translateText("Paste the article URL here...");
 
       showToast("Paste an article URL above, then select Investigate.");
 
     }
 
     if (method === "search") {
-      input.placeholder = "Type the claim or paste news text here...";
+      input.placeholder = translateText("Type the claim or paste news text here...");
     }
 
     input.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -979,8 +999,8 @@ $("closeSettings").addEventListener("click", () => {
 
 function openSettingsAction(title, subtitle, contentHTML) {
 
-  settingsActionTitle.textContent = title;
-  settingsActionSubtitle.textContent = subtitle;
+  settingsActionTitle.textContent = translateText(title);
+  settingsActionSubtitle.textContent = translateText(subtitle);
   settingsActionContent.innerHTML = contentHTML;
 
   settingsActionBackdrop.classList.add("show");
@@ -1066,7 +1086,225 @@ const translations = {
 
     shareTitle: "Share this website",
     shareDescription: "Send a link to this website to someone.",
-    shareAction: "Share link"
+    shareAction: "Share link",
+
+    page: {
+      pageTitle: "Fake News Detector | Investigation Dashboard",
+      brandTagline: "Detect • Verify • Investigate",
+      sidebarCaseLabel: "CASE FILE SYSTEM",
+      sidebarTitle: "Investigation",
+      sidebarMainLabel: "Main",
+      sidebarAccountLabel: "Preferences",
+      heroTitleEmphasis: "Investigate It.",
+      methodsKicker: "THREE WAYS TO INVESTIGATE",
+      resultBadge: "RESULT",
+      resultTitle: "Check result",
+      signalText: "Your result appears here after you run a check.",
+      actionText: "Enter a claim or article URL and select Investigate.",
+      articleAuthor: "No author metadata found",
+      confidenceLabel: "MODEL ESTIMATE",
+      confidenceDescription: "An estimate for the model's label, not a measure of truth",
+      confidenceDisclaimer: "This score cannot confirm whether the claim is true or false.",
+      evidenceTitle: "Related news coverage",
+      evidenceDisclaimer: "Not a fact-check verdict",
+      fastText: "Fast",
+      fastDescription: "investigation flow",
+      multiText: "ML model",
+      multiDescription: "text-pattern signal",
+      historyStatText: "History",
+      historyStatDescription: "of your checks",
+      privateText: "Local",
+      privateDescription: "preferences",
+      aboutKicker: "ABOUT",
+      aboutTitle: "Check a claim before sharing it.",
+      aboutDescription: "Fake News Detector gives you a quick first check on suspicious claims and articles, and a starting point for deeper verification.",
+      missionTitle: "Our mission",
+      missionDescription: "Make misinformation easier to spot by giving everyone a simple first check for claims and news articles.",
+      howItWorksTitle: "How it works",
+      howItWorksDescription: "The model uses patterns learned from its training data to classify the text as likely real, likely fake, or uncertain. This is a machine-learning estimate, not a fact-check: it does not verify whether a claim is true.",
+      limitationsTitle: "Limitations",
+      limitationsDescription: "The model is trained on English text, does not currently support Hindi claims, and does not verify facts. Cross-check important claims with trusted publishers and official sources before sharing.",
+      dataTitle: "Your data",
+      dataDescription: "Investigation history is stored in the local SQLite database and may be visible to other users of this server. This app does not currently provide user accounts or per-user access controls.",
+      authKicker: "CASE FILE ACCESS",
+      nameLabel: "Full name",
+      emailLabel: "Email",
+      passwordLabel: "Password",
+      confirmLabel: "Confirm password",
+      rememberText: "Remember me",
+      forgotPasswordBtn: "Forgot password?",
+      authPrivacy: "Demo only: accounts are stored in this browser, and passwords are hashed locally. This is not secure server-side authentication.",
+      settingsKicker: "PREFERENCES",
+      settingsPanelTitle: "Settings",
+      appearanceGroupLabel: "Appearance",
+      darkText: "Dark mode",
+      darkDescription: "Use a darker theme that is easier on the eyes.",
+      languageGroupLabel: "Language & notifications",
+      languageText: "Language",
+      notificationsText: "Notifications",
+      notificationsDescription: "Show a browser alert when a check finishes. Keep the browser open.",
+      historyGroupLabel: "History & data",
+      historySettingTitle: "History",
+      historySettingDescription: "Review prior investigations and saved results.",
+      settingNoteText: "Preferences are stored in this browser. Investigation history is stored on this server and is not separated by user accounts.",
+      settingsActionKicker: "SETTINGS",
+      settingsActionTitle: "Settings",
+      changeLanguageButton: "Change",
+      viewHistoryButton: "View",
+      toastText: "Done",
+      footerText: "© 2026 Fake News Detector • Investigation Dashboard"
+    },
+
+    attributes: {
+      claimInput: { placeholder: "Enter a claim or paste an article URL to investigate..." },
+      menuBtn: { "aria-label": "Open sidebar" },
+      themeBtn: { "aria-label": "Toggle dark mode" },
+      avatarBtn: { "aria-label": "Open settings" },
+      closeSidebar: { "aria-label": "Close sidebar" },
+      clearSearch: { "aria-label": "Clear" },
+      closeResult: { "aria-label": "Close result" },
+      confidenceCard: { "aria-label": "Model estimate" },
+      confidenceTrack: { "aria-label": "Model estimate" },
+      articleDetails: { "aria-label": "Fetched article details" },
+      newsEvidence: { "aria-label": "Related news coverage" },
+      authName: { placeholder: "Your name" },
+      authEmail: { placeholder: "you@example.com" },
+      authPassword: { placeholder: "Enter your password" },
+      authConfirmPassword: { placeholder: "Repeat your password" },
+      closeAuth: { "aria-label": "Close" },
+      closeSettings: { "aria-label": "Close settings" },
+      closeSettingsAction: { "aria-label": "Close" }
+    },
+
+    messages: {
+      "The browser could not display the notification.": "ब्राउज़र सूचना नहीं दिखा सका।",
+      "Please fill in all required fields.": "कृपया सभी ज़रूरी फ़ील्ड भरें।",
+      "Please enter your name.": "कृपया अपना नाम लिखें।",
+      "Passwords do not match.": "दोनों पासवर्ड एक जैसे नहीं हैं।",
+      "You already have an account. Please sign in.": "इस ईमेल से खाता पहले से बना है। कृपया साइन इन करें।",
+      "Email or password is incorrect.": "ईमेल या पासवर्ड गलत है।",
+      "Account created successfully. Please sign in.": "खाता बन गया है। कृपया साइन इन करें।",
+      "Signed in.": "आप साइन इन हो गए हैं।",
+      "Could not complete this account action.": "खाते से जुड़ी यह कार्रवाई पूरी नहीं हो सकी।",
+      "Password recovery is not available.": "पासवर्ड वापस पाने की सुविधा उपलब्ध नहीं है।",
+      "Paste an article URL to check its listed author.": "लेख में दिए लेखक की जाँच के लिए लेख का वेब पता डालें।",
+      "Enter a claim or article URL to search for other coverage.": "अन्य समाचार खोजने के लिए दावा या लेख का वेब पता लिखें।",
+      "Enter a claim or article URL first.": "पहले कोई दावा या लेख का वेब पता लिखें।",
+      "Share sheet opened.": "साझा करने का विकल्प खुल गया।",
+      "Link copied. Share it anywhere.": "लिंक कॉपी हो गया है। अब इसे कहीं भी साझा करें।",
+      "Share is not available in this browser.": "इस ब्राउज़र में साझा करने की सुविधा उपलब्ध नहीं है।",
+      "Paste an article URL above, then select Investigate.": "ऊपर लेख का वेब पता डालें, फिर जाँच करें चुनें।",
+      "Logged out.": "आप साइन आउट हो गए हैं।",
+      "Notifications disabled.": "सूचनाएँ बंद कर दी गई हैं।",
+      "This browser does not support notifications.": "यह ब्राउज़र सूचनाओं का समर्थन नहीं करता।",
+      "Allow notifications in your browser settings to enable them.": "सूचनाएँ चालू करने के लिए ब्राउज़र सेटिंग्स में अनुमति दें।",
+      "Notification permission was not granted.": "सूचनाएँ दिखाने की अनुमति नहीं मिली।",
+      "You will be notified when a check finishes.": "जाँच पूरी होने पर आपको सूचना मिलेगी।",
+      "Could not enable browser notifications.": "ब्राउज़र सूचनाएँ चालू नहीं हो सकीं।",
+      "History cleared.": "जाँच का इतिहास मिटा दिया गया।",
+      "Could not clear investigation history.": "जाँच का इतिहास नहीं मिटाया जा सका।",
+      "Language set to Hindi.": "भाषा हिंदी पर सेट कर दी गई है।",
+      "Language set to English.": "भाषा अंग्रेज़ी पर सेट कर दी गई है।",
+      "Create Account": "खाता बनाएँ",
+      "Sign In": "साइन इन करें",
+      "Login": "लॉगिन",
+      "Your check is complete. Open the browser to view the result.": "जाँच पूरी हो गई है। नतीजा देखने के लिए ब्राउज़र खोलें।",
+      "Already have an account?": "क्या आपका खाता पहले से है?",
+      "Need an account?": "क्या आपको नया खाता बनाना है?",
+      "Create one": "खाता बनाएँ",
+      "Demo account stored only in this browser.": "डेमो खाता केवल इसी ब्राउज़र में सहेजा जाएगा।",
+      "Sign in with the email and password saved in this browser.": "इस ब्राउज़र में सहेजे गए ईमेल और पासवर्ड से साइन इन करें।",
+      "Enter a claim or article URL and select Investigate.": "दावा या लेख का वेब पता लिखें और जाँच करें चुनें।",
+      "Checking...": "जाँच हो रही है...",
+      "Reading the article from this URL.": "इस वेब पते से लेख पढ़ा जा रहा है।",
+      "Checking the claim text.": "दावे के पाठ की जाँच हो रही है।",
+      "One moment...": "कृपया प्रतीक्षा करें...",
+      "The Flask server returned an invalid response.": "Flask सर्वर से मिला जवाब मान्य नहीं है।",
+      "The ML backend returned an error.": "मशीन लर्निंग सेवा में त्रुटि हुई।",
+      "The backend returned an invalid confidence score.": "बैकएंड से मिला भरोसे का स्कोर मान्य नहीं है।",
+      "The backend did not return article details.": "बैकएंड से लेख का विवरण नहीं मिला।",
+      "Uncertainty status was not returned correctly by the backend.": "बैकएंड से अनिश्चितता की स्थिति सही ढंग से नहीं मिली।",
+      "Prediction was not returned correctly by the backend.": "बैकएंड से अनुमान सही ढंग से नहीं मिला।",
+      "There is not enough recognizable claim text to analyze.": "विश्लेषण के लिए दावे का पर्याप्त पहचाने जाने योग्य पाठ नहीं है।",
+      "Hindi text is not currently supported because the model was trained on English text.": "मॉडल को अंग्रेज़ी पाठ पर प्रशिक्षित किया गया है, इसलिए अभी हिंदी पाठ समर्थित नहीं है।",
+      "Translate the claim into English before checking it; this model does not verify facts.": "जाँच से पहले दावे का अंग्रेज़ी में अनुवाद करें; यह मॉडल तथ्यों की पुष्टि नहीं करता।",
+      "Enter a meaningful claim or a few more details.": "कोई स्पष्ट दावा या कुछ और विवरण लिखें।",
+      "This sounds subjective or opinion-based; the model cannot verify opinions.": "यह निजी राय जैसा है; मॉडल राय की पुष्टि नहीं कर सकता।",
+      "For a fact-check, enter a specific claim that can be checked against evidence.": "तथ्य-जाँच के लिए ऐसा स्पष्ट दावा लिखें जिसे प्रमाणों से परखा जा सके।",
+      "The wording is unclear or uncertain.": "शब्दों का अर्थ स्पष्ट नहीं है या दावा अनिश्चित है।",
+      "Add context and state the specific claim you want to check.": "थोड़ा संदर्भ दें और वह स्पष्ट दावा लिखें जिसकी जाँच करनी है।",
+      "The model outputs point in different directions.": "मॉडल के नतीजे एक-दूसरे से अलग हैं।",
+      "The model estimates are inconclusive. Check reliable sources; this is not a fact-check.": "मॉडल का अनुमान निर्णायक नहीं है। विश्वसनीय स्रोत देखें; यह तथ्य-जाँच नहीं है।",
+      "The model signal is too weak for a clear result.": "स्पष्ट नतीजे के लिए मॉडल का संकेत बहुत कमज़ोर है।",
+      "Add context and check reliable sources; this is not a fact-check.": "थोड़ा संदर्भ जोड़ें और विश्वसनीय स्रोत देखें; यह तथ्य-जाँच नहीं है।",
+      "The model could not produce a clear result.": "मॉडल स्पष्ट नतीजा नहीं दे सका।",
+      "Verify with independent, trusted sources": "स्वतंत्र और विश्वसनीय स्रोतों से पुष्टि करें",
+      "Leans TRUE": "सही होने की संभावना",
+      "Leans FAKE": "गलत होने की संभावना",
+      "This is a text-based estimate, not a fact-check.": "यह पाठ पर आधारित अनुमान है, तथ्य-जाँच नहीं।",
+      "For important claims, check reliable sources before sharing.": "ज़रूरी दावे साझा करने से पहले विश्वसनीय स्रोतों से जाँचें।",
+      "Check reliable sources before deciding whether the claim is false.": "दावे को गलत मानने से पहले विश्वसनीय स्रोतों से जाँचें।",
+      "The model's text analysis leans TRUE": "पाठ के मॉडल-विश्लेषण में सही होने का संकेत है",
+      "The model's text analysis leans FAKE": "पाठ के मॉडल-विश्लेषण में गलत होने का संकेत है",
+      "Article text was read from the link": "लेख का पाठ लिंक से पढ़ा गया",
+      "Verify with a trusted source before sharing": "साझा करने से पहले विश्वसनीय स्रोत से पुष्टि करें",
+      "Do not share before checking the source": "स्रोत की जाँच किए बिना इसे साझा न करें",
+      "Listed author found in article metadata": "लेख के मेटाडेटा में लेखक का नाम मिला",
+      "No listed author metadata found": "लेख के मेटाडेटा में लेखक का नाम नहीं मिला",
+      "No author metadata found": "लेखक का विवरण नहीं मिला",
+      "Compare source coverage": "विभिन्न स्रोतों की खबरों की तुलना करें",
+      "Search for fact checks and other news coverage of this claim.": "इस दावे की तथ्य-जाँच और अन्य समाचार खोजें।",
+      "Fact-check search prepared": "तथ्य-जाँच की खोज तैयार है",
+      "News coverage search prepared": "समाचारों की खोज तैयार है",
+      "Search results are leads, not proof. Compare dates, evidence, and the original sources yourself.": "खोज नतीजे केवल सुराग हैं, प्रमाण नहीं। तारीखों, साक्ष्यों और मूल स्रोतों की स्वयं तुलना करें।",
+      "No investigations saved yet.": "अभी तक कोई जाँच सहेजी नहीं गई है।",
+      "Run a news analysis and it will appear here.": "समाचार का विश्लेषण करें; वह यहाँ दिखाई देगा।",
+      "Loading investigation history...": "जाँच का इतिहास लोड हो रहा है...",
+      "Investigation history": "जाँच का इतिहास",
+      "Stored in the local SQLite database on this server; records are shared with other users of this local app.": "इस सर्वर के स्थानीय SQLite डेटाबेस में सहेजा जाता है; इस ऐप के अन्य उपयोगकर्ता भी ये रिकॉर्ड देख सकते हैं।",
+      "Could not load investigation history.": "जाँच का इतिहास लोड नहीं हो सका।",
+      "Related article": "संबंधित लेख",
+      "Unknown publisher": "अज्ञात प्रकाशक",
+      "Clear history": "इतिहास मिटाएँ",
+      "Clear investigation history shared by all users of this local app?": "क्या इस स्थानीय ऐप के सभी उपयोगकर्ताओं के साथ साझा किया गया जाँच इतिहास मिटाएँ?",
+      "ERROR": "त्रुटि",
+      "The Flask API could not be reached.": "Flask API तक पहुँचा नहीं जा सका।",
+      "Unable to connect to the Python backend.": "Python बैकएंड से संपर्क नहीं हो सका।",
+      "Make sure Flask is running with: .\\venv\\Scripts\\python.exe app.py": "जाँचें कि Flask इस कमांड से चल रहा है: .\\venv\\Scripts\\python.exe app.py",
+      "Check complete": "जाँच पूरी हुई",
+      "Check could not be completed": "जाँच पूरी नहीं हो सकी",
+      "Model leans TRUE": "मॉडल के अनुसार सही होने की संभावना",
+      "Model leans FAKE": "मॉडल के अनुसार गलत होने की संभावना",
+      "This result is uncertain.": "यह नतीजा अनिश्चित है।",
+      "words analyzed": "शब्दों का विश्लेषण किया गया",
+      "TRUE": "सही",
+      "FAKE": "गलत",
+      "NOT VERIFIED": "पुष्टि नहीं हुई",
+      "TEXT PATTERN": "पाठ का पैटर्न",
+      "UNCERTAIN": "अनिश्चित",
+      "LIKELY REAL": "सही होने की संभावना",
+      "LIKELY FAKE": "गलत होने की संभावना",
+      "CHECKING": "जाँच जारी",
+      "RESULT": "नतीजा",
+      "Language": "भाषा",
+      "Choose your preferred interface language.": "अपनी पसंद की भाषा चुनें।",
+      "Save language": "भाषा सहेजें",
+      "Paste the article URL here...": "लेख का वेब पता यहाँ डालें...",
+      "Type the claim or paste news text here...": "दावा लिखें या समाचार का पाठ यहाँ डालें...",
+      "Related news coverage.": "इससे जुड़ी समाचार कवरेज।",
+      "No related articles found. Try the search links below.": "कोई संबंधित लेख नहीं मिला। नीचे दिए खोज लिंक आज़माएँ।",
+      "Related news coverage only. These articles are not a fact-check verdict.": "ये केवल संबंधित समाचार हैं, तथ्य-जाँच का निष्कर्ष नहीं।",
+      "No author metadata found": "लेखक का विवरण नहीं मिला",
+      "This website does not support notifications.": "यह वेबसाइट सूचनाओं का समर्थन नहीं करती।",
+      "The article contains too little readable text to analyze.": "विश्लेषण के लिए लेख में पढ़ने योग्य पाठ बहुत कम है।",
+      "No readable article text was found.": "लेख में पढ़ने योग्य पाठ नहीं मिला।",
+      "The website address could not be resolved.": "वेबसाइट का पता नहीं मिला।",
+      "Use a complete public http:// or https:// article URL.": "लेख का पूरा सार्वजनिक http:// या https:// वेब पता डालें।",
+      "Text or URL cannot be empty.": "पाठ या वेब पता खाली नहीं हो सकता।",
+      "Text or URL must be a string.": "पाठ या वेब पता सही प्रारूप में होना चाहिए।",
+      "No news text or article URL provided.": "समाचार का पाठ या लेख का वेब पता नहीं दिया गया।",
+      "Could not clear investigation history.": "जाँच का इतिहास मिटाया नहीं जा सका।"
+    }
 
   },
 
@@ -1074,60 +1312,154 @@ const translations = {
   Hindi: {
 
     navHome: "होम",
-    navAbout: "अबाउट",
+    navAbout: "परिचय",
     signIn: "साइन इन",
 
     dashboard: "डैशबोर्ड",
-    history: "हिस्ट्री",
+    history: "इतिहास",
     settings: "सेटिंग्स",
     login: "लॉगिन",
     logout: "लॉगआउट",
 
-    heroTitle: "सिर्फ पढ़ें नहीं।",
+    heroTitle: "केवल पढ़ें नहीं।",
 
     heroDescription:
-      "किसी दावे, आर्टिकल या URL को चेक करें और ऐसे संकेत देखें जो जानकारी को Real, Fake या Uncertain समझने में मदद करें।",
+      "किसी दावे, लेख या वेब पते की जाँच करें और जानें कि जानकारी सही, गलत या अनिश्चित लगती है।",
 
-    investigate: "जांच करें",
+    investigate: "जाँच करें",
 
-    quickAuthorship: "लेख में लेखक देखें",
-    quickArticles: "आर्टिकल जांचें",
-    quickSources: "सोर्स क्रॉस-चेक करें",
-    aiDisclaimer: "AI गलतियाँ कर सकता है। ज़रूरी दावों की विश्वसनीय स्रोतों से पुष्टि करें।",
+    quickAuthorship: "पाठ के पैटर्न जाँचें",
+    quickArticles: "लेख की जाँच करें",
+    quickSources: "अन्य स्रोतों से मिलान करें",
+    aiDisclaimer: "कृत्रिम बुद्धिमत्ता से गलतियाँ हो सकती हैं। ज़रूरी दावों की विश्वसनीय स्रोतों से पुष्टि करें।",
     publisher: "प्रकाशक",
     authorLabel: "सूचीबद्ध लेखक",
-    articlePreview: "निकाला गया टेक्स्ट",
-    openArticle: "मूल आर्टिकल खोलें",
-    sourceLinks: "इस दावे की और जानकारी देखें",
-    factChecks: "फैक्ट-चेक खोजें",
-    independentSources: "खबरों में खोजें",
-    authorLabel: "लेख में दिया लेखक",
+    articlePreview: "लेख से लिया गया पाठ",
+    openArticle: "मूल लेख खोलें",
+    sourceLinks: "इस दावे के बारे में खोजें",
+    factChecks: "तथ्य-जाँच खोजें",
+    independentSources: "समाचारों में खोजें",
 
-    methodsTitle: "आप क्या जांचना चाहते हैं?",
+    methodsTitle: "आप किस चीज़ की जाँच करना चाहते हैं?",
 
     methodsDescription:
-      "लिंक, दावा या शेयर करने का विकल्प चुनें।",
+      "लेख का वेब पता जाँचें, किसी दावे का विश्लेषण करें या यह ऐप साझा करें।",
 
-    linkTitle: "लिंक से चेक करें",
-    linkDescription: "आर्टिकल या वेबसाइट URL डालकर उसके source signals देखें।",
-    linkAction: "लिंक चेक करें",
+    linkTitle: "वेब पते से जाँचें",
+    linkDescription: "लेख या वेबसाइट का वेब पता डालें और उसके स्रोतों से जुड़े संकेत देखें।",
+    linkAction: "वेब पते की जाँच करें",
 
-    searchTitle: "दावा सर्च करें",
-    searchDescription: "किसी statement को डालकर verification workflow में जांचें।",
-    searchAction: "दावा सर्च करें",
+    searchTitle: "दावे की जाँच करें",
+    searchDescription: "कोई दावा लिखें और जाँच के लिए उसका विश्लेषण करें।",
+    searchAction: "दावे का विश्लेषण करें",
 
-    shareTitle: "वेबसाइट शेयर करें",
+    shareTitle: "यह वेबसाइट साझा करें",
     shareDescription: "किसी को इस वेबसाइट का लिंक भेजें।",
-    shareAction: "लिंक शेयर करें"
+    shareAction: "लिंक साझा करें",
+
+    page: {
+      pageTitle: "फेक न्यूज़ डिटेक्टर | जाँच डैशबोर्ड",
+      brandTagline: "पहचानें • पुष्टि करें • जाँचें",
+      sidebarCaseLabel: "जाँच प्रणाली",
+      sidebarTitle: "जाँच",
+      sidebarMainLabel: "मुख्य मेन्यू",
+      sidebarAccountLabel: "प्राथमिकताएँ",
+      heroTitleEmphasis: "जाँच करें।",
+      methodsKicker: "जाँच करने के तीन तरीके",
+      resultBadge: "नतीजा",
+      resultTitle: "जाँच का नतीजा",
+      signalText: "जाँच करने के बाद नतीजा यहाँ दिखाई देगा।",
+      actionText: "दावा या लेख का वेब पता लिखें और जाँच करें चुनें।",
+      articleAuthor: "लेखक का विवरण नहीं मिला",
+      confidenceLabel: "मॉडल का अनुमान",
+      confidenceDescription: "यह मॉडल के निष्कर्ष का अनुमान है, सच्चाई का माप नहीं।",
+      confidenceDisclaimer: "यह स्कोर दावे को सही या गलत साबित नहीं करता।",
+      evidenceTitle: "इससे जुड़ी समाचार कवरेज",
+      evidenceDisclaimer: "यह तथ्य-जाँच का निष्कर्ष नहीं है।",
+      fastText: "तेज़",
+      fastDescription: "जाँच प्रक्रिया",
+      multiText: "मशीन लर्निंग मॉडल",
+      multiDescription: "पाठ के पैटर्न पर आधारित संकेत",
+      historyStatText: "इतिहास",
+      historyStatDescription: "आपकी जाँच का",
+      privateText: "स्थानीय",
+      privateDescription: "प्राथमिकताएँ",
+      aboutKicker: "परिचय",
+      aboutTitle: "दावा साझा करने से पहले उसकी जाँच करें।",
+      aboutDescription: "फेक न्यूज़ डिटेक्टर संदिग्ध दावों और लेखों की शुरुआती जाँच करता है और आगे पुष्टि करने का आधार देता है।",
+      missionTitle: "हमारा उद्देश्य",
+      missionDescription: "हर व्यक्ति को दावों और समाचार लेखों की शुरुआती जाँच का सरल तरीका देकर भ्रामक जानकारी पहचानना आसान बनाना।",
+      howItWorksTitle: "यह कैसे काम करता है",
+      howItWorksDescription: "मॉडल अपने प्रशिक्षण डेटा से सीखे गए पैटर्न के आधार पर पाठ को संभावित रूप से सही, गलत या अनिश्चित बताता है। यह मशीन लर्निंग का अनुमान है, तथ्य-जाँच नहीं; यह दावे की सच्चाई की पुष्टि नहीं करता।",
+      limitationsTitle: "सीमाएँ",
+      limitationsDescription: "मॉडल को अंग्रेज़ी पाठ पर प्रशिक्षित किया गया है; यह अभी हिंदी दावों का विश्लेषण नहीं कर सकता और तथ्यों की पुष्टि भी नहीं करता। साझा करने से पहले ज़रूरी दावों की विश्वसनीय समाचार संस्थानों और आधिकारिक स्रोतों से जाँच करें।",
+      dataTitle: "आपका डेटा",
+      dataDescription: "जाँच का इतिहास इस कंप्यूटर के SQLite डेटाबेस में रखा जाता है और सर्वर के अन्य उपयोगकर्ताओं को दिख सकता है। इस ऐप में अभी उपयोगकर्ता खातों या अलग-अलग उपयोगकर्ताओं के लिए पहुँच नियंत्रण की सुविधा नहीं है।",
+      authKicker: "खाते तक पहुँच",
+      nameLabel: "पूरा नाम",
+      emailLabel: "ईमेल",
+      passwordLabel: "पासवर्ड",
+      confirmLabel: "पासवर्ड की पुष्टि करें",
+      rememberText: "मुझे याद रखें",
+      forgotPasswordBtn: "पासवर्ड भूल गए?",
+      authPrivacy: "यह केवल डेमो है: खाते इसी ब्राउज़र में रखे जाते हैं और पासवर्ड यहीं सुरक्षित रूप में हैश किए जाते हैं। यह सर्वर पर सुरक्षित प्रमाणीकरण नहीं है।",
+      settingsKicker: "प्राथमिकताएँ",
+      settingsPanelTitle: "सेटिंग्स",
+      appearanceGroupLabel: "दिखावट",
+      darkText: "डार्क मोड",
+      darkDescription: "आँखों को आराम देने वाली गहरी रंग-योजना चुनें।",
+      languageGroupLabel: "भाषा और सूचनाएँ",
+      languageText: "भाषा",
+      notificationsText: "सूचनाएँ",
+      notificationsDescription: "जाँच पूरी होने पर ब्राउज़र में सूचना दिखाएँ। ब्राउज़र खुला रखें।",
+      historyGroupLabel: "इतिहास और डेटा",
+      historySettingTitle: "जाँच का इतिहास",
+      historySettingDescription: "पहले की जाँच और सहेजे गए नतीजे देखें।",
+      settingNoteText: "प्राथमिकताएँ इस ब्राउज़र में सहेजी जाती हैं। जाँच का इतिहास इस सर्वर पर रखा जाता है और उपयोगकर्ता खातों के अनुसार अलग नहीं होता।",
+      settingsActionKicker: "सेटिंग्स",
+      settingsActionTitle: "सेटिंग्स",
+      changeLanguageButton: "बदलें",
+      viewHistoryButton: "देखें",
+      toastText: "हो गया",
+      footerText: "© 2026 फेक न्यूज़ डिटेक्टर • जाँच डैशबोर्ड"
+    },
+
+    attributes: {
+      claimInput: { placeholder: "जाँच के लिए दावा लिखें या लेख का वेब पता डालें..." },
+      menuBtn: { "aria-label": "साइडबार खोलें" },
+      themeBtn: { "aria-label": "डार्क मोड बदलें" },
+      avatarBtn: { "aria-label": "सेटिंग्स खोलें" },
+      closeSidebar: { "aria-label": "साइडबार बंद करें" },
+      clearSearch: { "aria-label": "मिटाएँ" },
+      closeResult: { "aria-label": "नतीजा बंद करें" },
+      confidenceCard: { "aria-label": "मॉडल का अनुमान" },
+      confidenceTrack: { "aria-label": "मॉडल का अनुमान" },
+      articleDetails: { "aria-label": "प्राप्त लेख का विवरण" },
+      newsEvidence: { "aria-label": "इससे जुड़ी समाचार कवरेज" },
+      authName: { placeholder: "आपका नाम" },
+      authEmail: { placeholder: "आपका ईमेल पता" },
+      authPassword: { placeholder: "अपना पासवर्ड लिखें" },
+      authConfirmPassword: { placeholder: "पासवर्ड दोबारा लिखें" },
+      closeAuth: { "aria-label": "बंद करें" },
+      closeSettings: { "aria-label": "सेटिंग्स बंद करें" },
+      closeSettingsAction: { "aria-label": "बंद करें" }
+    },
+
+    messages: {}
 
   }
 
 };
 
 
+translations.Hindi.messages = translations.English.messages;
+delete translations.English.messages;
+
+
 function applyLanguage(language) {
 
-  const t = translations[language] || translations.English;
+  activeLanguage = translations[language] ? language : "English";
+  const t = translations[activeLanguage];
 
   $("navHome").textContent = t.navHome;
   $("navAbout").textContent = t.navAbout;
@@ -1170,9 +1502,46 @@ function applyLanguage(language) {
   $("shareDescription").textContent = t.shareDescription;
   $("shareAction").textContent = t.shareAction;
 
-  $("languageSettingText").textContent = language;
+  const heroTitle = $("heroTitle");
+  const heroTitleLead = Array.from(heroTitle.childNodes).find(
+    (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim()
+  );
+  if (heroTitleLead) {
+    heroTitleLead.textContent = `\n          ${t.heroTitle}\n          `;
+  }
 
-  document.documentElement.lang = language === "Hindi" ? "hi" : "en";
+  const isLanguageDialog = ["Language", "भाषा"].includes(
+    $("settingsActionTitle").textContent
+  );
+  Object.entries(t.page).forEach(([id, value]) => {
+    const element = $(id);
+    if (element) element.textContent = value;
+  });
+  Object.entries(t.attributes).forEach(([id, attributes]) => {
+    const element = $(id);
+    if (element) {
+      Object.entries(attributes).forEach(([name, value]) => {
+        element.setAttribute(name, value);
+      });
+    }
+  });
+
+  if (isLanguageDialog) {
+    $("settingsActionTitle").textContent = translateText("Language");
+    $("settingsActionSubtitle").textContent = translateText(
+      "Choose your preferred interface language."
+    );
+    const saveLanguageButton = $("saveLanguage");
+    if (saveLanguageButton) {
+      saveLanguageButton.textContent = translateText("Save language");
+    }
+  }
+
+  $("languageSettingText").textContent = activeLanguage === "Hindi" ? "हिन्दी" : "English";
+  document.title = t.page.pageTitle;
+  setAuthMode($("authSubmit").dataset.mode || "login");
+
+  document.documentElement.lang = activeLanguage === "Hindi" ? "hi" : "en";
 
 }
 
@@ -1183,9 +1552,9 @@ function openLanguageSettings() {
 
   openSettingsAction(
 
-    "Language",
+    translateText("Language"),
 
-    "Choose your preferred interface language.",
+    translateText("Choose your preferred interface language."),
 
     `
       <div class="language-options">
@@ -1203,7 +1572,7 @@ function openLanguageSettings() {
       </div>
 
       <button type="button" class="auth-submit settings-save-btn" id="saveLanguage">
-        Save language
+        ${escapeHTML(translateText("Save language"))}
       </button>
     `
 
@@ -1221,6 +1590,7 @@ function openLanguageSettings() {
     showToast(`Language set to ${choice}.`);
 
     closeSettingsAction();
+    settingsPanel.classList.remove("open");
 
   });
 
@@ -1238,8 +1608,8 @@ function renderHistory(history) {
     return `
       <div class="empty-history">
         <i class="fa-solid fa-clock-rotate-left"></i>
-        <p>No investigations saved yet.</p>
-        <small>Run a news analysis and it will appear here.</small>
+        <p>${escapeHTML(translateText("No investigations saved yet."))}</p>
+        <small>${escapeHTML(translateText("Run a news analysis and it will appear here."))}</small>
       </div>
     `;
 
@@ -1257,7 +1627,7 @@ function renderHistory(history) {
       .map((article) => {
         const url = safeHttpUrl(article.url);
         if (!url) return "";
-        return `<li><a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(article.title || "Related article")}</a> — ${escapeHTML(article.publisher || "Unknown publisher")}</li>`;
+        return `<li><a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(article.title || translateText("Related article"))}</a> — ${escapeHTML(article.publisher || translateText("Unknown publisher"))}</li>`;
       })
       .join("");
 
@@ -1265,7 +1635,7 @@ function renderHistory(history) {
           <div class="history-entry">
 
             <div class="history-entry-top">
-              <span class="history-chip ${className}">${escapeHTML(item.prediction)}</span>
+              <span class="history-chip ${className}">${escapeHTML(translateText(item.prediction))}</span>
               <small>${escapeHTML(item.date)}</small>
             </div>
 
@@ -1295,7 +1665,7 @@ async function showHistory() {
     "Stored in the local SQLite database on this server; records are shared with other users of this local app.",
 
     `
-      <p>Loading investigation history...</p>
+      <p>${escapeHTML(translateText("Loading investigation history..."))}</p>
     `
 
   );
@@ -1312,12 +1682,12 @@ async function showHistory() {
       ${renderHistory(history)}
       <button type="button" class="settings-secondary-btn" id="clearHistoryBtn">
         <i class="fa-solid fa-trash"></i>
-        Clear history
+        ${escapeHTML(translateText("Clear history"))}
       </button>
     `;
 
     $("clearHistoryBtn").addEventListener("click", async () => {
-      if (!window.confirm("Clear investigation history shared by all users of this local app?")) {
+      if (!window.confirm(translateText("Clear investigation history shared by all users of this local app?"))) {
         return;
       }
 
@@ -1336,7 +1706,7 @@ async function showHistory() {
       }
     });
   } catch (error) {
-    settingsActionContent.innerHTML = `<p>${escapeHTML(error.message || "Could not load investigation history.")}</p>`;
+    settingsActionContent.innerHTML = `<p>${escapeHTML(translateText(error.message || "Could not load investigation history."))}</p>`;
   }
 
 }

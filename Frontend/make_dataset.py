@@ -12,7 +12,7 @@ def normalize_statement(value):
     return re.sub(r"\s+", " ", text).strip().casefold()
 
 
-def prepare_dataset(data, sample_size=5000, random_state=42):
+def prepare_dataset(data, sample_size=None, random_state=42):
     """Clean, deduplicate, and create a reproducible balanced dataset."""
     required = {"Statement", "Label"}
     missing = required.difference(data.columns)
@@ -52,16 +52,27 @@ def prepare_dataset(data, sample_size=5000, random_state=42):
     print("TRUE:", len(true_data))
     print("FAKE:", len(fake_data))
 
-    if sample_size <= 0:
+    if sample_size is not None and sample_size <= 0:
         raise ValueError("sample_size must be greater than zero.")
-    if len(true_data) < sample_size or len(fake_data) < sample_size:
+    available_balanced_count = min(len(true_data), len(fake_data))
+    sample_count = (
+        available_balanced_count
+        if sample_size is None
+        else min(sample_size, available_balanced_count)
+    )
+    if sample_count == 0:
         raise ValueError(
-            f"Cannot create a balanced {sample_size}-per-class sample after conflict "
-            f"removal: TRUE={len(true_data)}, FAKE={len(fake_data)}."
+            "Cannot create a balanced sample because one or both classes have no "
+            f"eligible records: TRUE={len(true_data)}, FAKE={len(fake_data)}."
+        )
+    if sample_size is not None and sample_count < sample_size:
+        print(
+            f"Only {sample_count} eligible records are available in the smaller "
+            "class; creating an equally sized sample from both classes."
         )
 
-    true_sample = true_data.sample(n=sample_size, random_state=random_state)
-    fake_sample = fake_data.sample(n=sample_size, random_state=random_state)
+    true_sample = true_data.sample(n=sample_count, random_state=random_state)
+    fake_sample = fake_data.sample(n=sample_count, random_state=random_state)
     balanced_data = pd.concat([true_sample, fake_sample], ignore_index=True)
     balanced_data = balanced_data.sample(frac=1, random_state=random_state).reset_index(drop=True)
     return balanced_data.drop(columns=["_normalized_statement"])
@@ -73,14 +84,15 @@ def main():
     print("Total records:", len(data))
 
     balanced_data = prepare_dataset(data)
-    balanced_data.to_csv("IFND_10000_clean.csv", index=False)
+    output_path = "IFND_balanced_clean.csv"
+    balanced_data.to_csv(output_path, index=False)
     print("\n==============================")
     print("DATASET CREATED SUCCESSFULLY")
     print("==============================")
     print("Total records:", len(balanced_data))
     print("\nFinal distribution:")
     print(balanced_data["Label"].value_counts())
-    print("\nFile created: IFND_10000_clean.csv")
+    print(f"\nFile created: {output_path}")
 
 
 if __name__ == "__main__":
