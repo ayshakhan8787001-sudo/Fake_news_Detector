@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title id="pageTitle">Fake News Detector | Investigation Dashboard</title>
+  <title id="documentTitle">Fake News Detector | Investigation Dashboard</title>
 
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
@@ -30,7 +30,7 @@
           <span class="scan-dot"></span>
         </div>
         <div>
-          <div class="brand-name"><span>FAKE NEWS</span> DETECTOR</div>
+          <div class="brand-name" id="brandName"><span>FAKE NEWS</span> DETECTOR</div>
           <div class="brand-tagline" id="brandTagline">Detect • Verify • Investigate</div>
         </div>
       </a>
@@ -63,7 +63,7 @@
 
     <div class="sidebar-head">
       <div>
-        <span class="small-label" id="sidebarCaseLabel">CASE FILE SYSTEM</span>
+        <span class="small-label" id="caseFileLabel">CASE FILE SYSTEM</span>
         <h3 id="sidebarTitle">Investigation</h3>
       </div>
       <button class="close-sidebar" id="closeSidebar" aria-label="Close sidebar">
@@ -125,7 +125,7 @@
         <h1 id="heroTitle">
           Don't Just Read It.
           <br />
-          <span id="heroTitleEmphasis">Investigate It.</span>
+          <span id="heroTitleSecond">Investigate It.</span>
         </h1>
 
         <p class="hero-description" id="heroDescription">
@@ -316,8 +316,8 @@
 
         <section class="evidence-results hidden" id="newsEvidence" aria-label="Related news coverage">
           <div class="evidence-heading">
-            <h3 id="evidenceTitle">Related news coverage</h3>
-            <span id="evidenceDisclaimer">Not a fact-check verdict</span>
+            <h3 id="newsEvidenceTitle">Related news coverage</h3>
+            <span id="newsEvidenceDisclaimer">Not a fact-check verdict</span>
           </div>
           <p id="evidenceStatus"></p>
           <ul id="evidenceList"></ul>
@@ -407,8 +407,8 @@
 
         <article class="about-card">
           <i class="fa-solid fa-lock"></i>
-          <h3 id="dataTitle">Your data</h3>
-          <p id="dataDescription">Investigation history is stored in the local SQLite database and may be visible to other users of this server. This app does not currently provide user accounts or per-user access controls.</p>
+          <h3 id="yourDataTitle">Your data</h3>
+          <p id="yourDataDescription">Investigation history is stored in the local SQLite database and may be visible to other users of this server. This app does not currently provide user accounts or per-user access controls.</p>
         </article>
 
       </div>
@@ -433,7 +433,7 @@
           <i class="fa-solid fa-fingerprint"></i>
         </div>
 
-        <span class="section-kicker" id="authKicker">CASE FILE ACCESS</span>
+        <span class="section-kicker" id="caseAccessLabel">CASE FILE ACCESS</span>
 
         <h2 id="authHeading">Sign In</h2>
 
@@ -506,7 +506,7 @@
 
     <div class="settings-head">
       <div>
-        <span class="section-kicker" id="settingsKicker">PREFERENCES</span>
+        <span class="section-kicker" id="preferencesLabel">PREFERENCES</span>
         <h2 id="settingsPanelTitle">Settings</h2>
       </div>
       <button id="closeSettings" type="button" aria-label="Close settings">
@@ -542,7 +542,7 @@
             <b id="languageText">Language</b>
             <small id="languageSettingText">English</small>
           </div>
-          <button type="button" class="setting-action" id="changeLanguageButton" data-setting-action="language">Change</button>
+          <button type="button" class="setting-action" id="languageChangeButton" data-setting-action="language">Change</button>
         </div>
 
         <!-- NOTIFICATIONS -->
@@ -567,7 +567,7 @@
             <b id="historySettingTitle">History</b>
             <small id="historySettingDescription">Review prior investigations and saved results.</small>
           </div>
-          <button type="button" class="setting-action" id="viewHistoryButton" data-setting-action="history">View</button>
+          <button type="button" class="setting-action" id="historyViewButton" data-setting-action="history">View</button>
         </div>
       </div>
 
