@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fake News Detector | Investigation Dashboard</title>
+  <title id="documentTitle">Fake News Detector | Investigation Dashboard</title>
 
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
@@ -30,8 +30,8 @@
           <span class="scan-dot"></span>
         </div>
         <div>
-          <div class="brand-name"><span>FAKE NEWS</span> DETECTOR</div>
-          <div class="brand-tagline">Detect • Verify • Investigate</div>
+          <div class="brand-name" id="brandName"><span>FAKE NEWS</span> DETECTOR</div>
+          <div class="brand-tagline" id="brandTagline">Detect • Verify • Investigate</div>
         </div>
       </a>
     </div>
@@ -63,7 +63,7 @@
 
     <div class="sidebar-head">
       <div>
-        <span class="small-label">CASE FILE SYSTEM</span>
+        <span class="small-label" id="caseFileLabel">CASE FILE SYSTEM</span>
         <h3 id="sidebarTitle">Investigation</h3>
       </div>
       <button class="close-sidebar" id="closeSidebar" aria-label="Close sidebar">
@@ -125,7 +125,7 @@
         <h1 id="heroTitle">
           Don't Just Read It.
           <br />
-          <span>Investigate It.</span>
+          <span id="heroTitleSecond">Investigate It.</span>
         </h1>
 
         <p class="hero-description" id="heroDescription">
@@ -279,8 +279,8 @@
         <section class="confidence-card hidden" id="confidenceCard" aria-label="Model estimate">
           <div class="confidence-heading">
             <div>
-              <span class="confidence-label">MODEL ESTIMATE</span>
-              <p>An estimate for the model's label, not a measure of truth</p>
+              <span class="confidence-label" id="confidenceLabel">MODEL ESTIMATE</span>
+              <p id="confidenceDescription">An estimate for the model's label, not a measure of truth</p>
             </div>
             <strong id="confidenceValue">--%</strong>
           </div>
@@ -295,7 +295,7 @@
           >
             <span id="confidenceBar"></span>
           </div>
-          <small>This score cannot confirm whether the claim is true or false.</small>
+          <small id="confidenceDisclaimer">This score cannot confirm whether the claim is true or false.</small>
         </section>
 
         <section class="article-details hidden" id="articleDetails" aria-label="Fetched article details">
@@ -316,8 +316,8 @@
 
         <section class="evidence-results hidden" id="newsEvidence" aria-label="Related news coverage">
           <div class="evidence-heading">
-            <h3>Related news coverage</h3>
-            <span>Not a fact-check verdict</span>
+            <h3 id="newsEvidenceTitle">Related news coverage</h3>
+            <span id="newsEvidenceDisclaimer">Not a fact-check verdict</span>
           </div>
           <p id="evidenceStatus"></p>
           <ul id="evidenceList"></ul>
@@ -374,10 +374,10 @@
 
       <div class="section-heading">
         <div>
-          <span class="section-kicker">ABOUT</span>
-          <h2>Check a claim before sharing it.</h2>
+          <span class="section-kicker" id="aboutKicker">ABOUT</span>
+          <h2 id="aboutTitle">Check a claim before sharing it.</h2>
         </div>
-        <p>
+        <p id="aboutDescription">
           Fake News Detector gives you a quick first check on suspicious
           claims and articles, and a starting point for deeper verification.
         </p>
@@ -387,28 +387,28 @@
 
         <article class="about-card">
           <i class="fa-solid fa-bullseye"></i>
-          <h3>Our mission</h3>
-          <p>Make misinformation easier to spot by giving everyone a simple first check for claims and news articles.
+          <h3 id="missionTitle">Our mission</h3>
+          <p id="missionDescription">Make misinformation easier to spot by giving everyone a simple first check for claims and news articles.
           </p>
         </article>
 
         <article class="about-card">
           <i class="fa-solid fa-microchip"></i>
-          <h3>How it works</h3>
-          <p>The model uses patterns learned from its training data to classify the text as likely real, likely fake, or uncertain. This is a machine-learning estimate, not a fact-check: it does not verify whether a claim is true.</p>
+          <h3 id="howItWorksTitle">How it works</h3>
+          <p id="howItWorksDescription">The model uses patterns learned from its training data to classify the text as likely real, likely fake, or uncertain. This is a machine-learning estimate, not a fact-check: it does not verify whether a claim is true.</p>
         </article>
 
         <article class="about-card">
           <i class="fa-solid fa-triangle-exclamation"></i>
-          <h3>Limitations</h3>
-          <p>The model does not verify facts. Always cross-check important claims with trusted publishers and official
+          <h3 id="limitationsTitle">Limitations</h3>
+          <p id="limitationsDescription">The model does not verify facts. Always cross-check important claims with trusted publishers and official
             sources before sharing.</p>
         </article>
 
         <article class="about-card">
           <i class="fa-solid fa-lock"></i>
-          <h3>Your data</h3>
-          <p>Investigation history is stored in the local SQLite database and may be visible to other users of this server. This app does not currently provide user accounts or per-user access controls.</p>
+          <h3 id="yourDataTitle">Your data</h3>
+          <p id="yourDataDescription">Investigation history is stored in the local SQLite database and may be visible to other users of this server. This app does not currently provide user accounts or per-user access controls.</p>
         </article>
 
       </div>
@@ -433,7 +433,7 @@
           <i class="fa-solid fa-fingerprint"></i>
         </div>
 
-        <span class="section-kicker">CASE FILE ACCESS</span>
+        <span class="section-kicker" id="caseAccessLabel">CASE FILE ACCESS</span>
 
         <h2 id="authHeading">Sign In</h2>
 
@@ -506,7 +506,7 @@
 
     <div class="settings-head">
       <div>
-        <span class="section-kicker">PREFERENCES</span>
+        <span class="section-kicker" id="preferencesLabel">PREFERENCES</span>
         <h2 id="settingsPanelTitle">Settings</h2>
       </div>
       <button id="closeSettings" type="button" aria-label="Close settings">
@@ -542,7 +542,7 @@
             <b id="languageText">Language</b>
             <small id="languageSettingText">English</small>
           </div>
-          <button type="button" class="setting-action" data-setting-action="language">Change</button>
+          <button type="button" class="setting-action" id="languageChangeButton" data-setting-action="language">Change</button>
         </div>
 
         <!-- NOTIFICATIONS -->
@@ -567,7 +567,7 @@
             <b id="historySettingTitle">History</b>
             <small id="historySettingDescription">Review prior investigations and saved results.</small>
           </div>
-          <button type="button" class="setting-action" data-setting-action="history">View</button>
+          <button type="button" class="setting-action" id="historyViewButton" data-setting-action="history">View</button>
         </div>
       </div>
 
