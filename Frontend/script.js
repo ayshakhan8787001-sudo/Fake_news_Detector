@@ -689,10 +689,6 @@ async function investigate(value = input.value.trim()) {
       throw new Error(data.error || "The ML backend returned an error.");
     }
 
-    if (!Number.isFinite(data.confidence) || data.confidence < 0 || data.confidence > 1) {
-      throw new Error("The backend returned an invalid confidence score.");
-    }
-
     renderNewsEvidence(data.evidence);
 
     let authorCheck = null;
@@ -728,21 +724,18 @@ async function investigate(value = input.value.trim()) {
     }
 
     const prediction = data.prediction;
-    const abstained = [
-      "unrecognized_text",
-      "opinion_like",
-      "ambiguous"
-    ].includes(data.uncertain_reason);
-
     if (typeof data.uncertain !== "boolean") {
       throw new Error("Uncertainty status was not returned correctly by the backend.");
     }
 
+    const abstained = data.uncertain;
+    const hasValidConfidence =
+      Number.isFinite(data.confidence) && data.confidence >= 0 && data.confidence <= 1;
     if (
-      (abstained && (!data.uncertain || prediction !== null)) ||
-      (!abstained && prediction !== true && prediction !== false)
+      (abstained && (data.confidence !== null || prediction !== null)) ||
+      (!abstained && (!hasValidConfidence || (prediction !== true && prediction !== false)))
     ) {
-      throw new Error("Prediction was not returned correctly by the backend.");
+      throw new Error("The backend returned an invalid confidence score.");
     }
 
     const words = Number(data.word_count) || analysisInput.split(/\s+/).filter(Boolean).length;
@@ -759,7 +752,7 @@ async function investigate(value = input.value.trim()) {
           action: "Enter a meaningful claim or a few more details."
         },
         opinion_like: {
-          reason: "This sounds subjective or opinion-based; the model cannot verify opinions.",
+          reason: "This sounds subjective, speculative, or about a person's mental state, so it is not suitable for TRUE/FAKE text classification.",
           action: "For a fact-check, enter a specific claim that can be checked against evidence."
         },
         ambiguous: {
@@ -779,21 +772,15 @@ async function investigate(value = input.value.trim()) {
         reason: "The model could not produce a clear result.",
         action: "Add context and check reliable sources; this is not a fact-check."
       };
-      const hideConfidence = [
-        "unrecognized_text",
-        "opinion_like",
-        "ambiguous"
-      ].includes(data.uncertain_reason);
       setResult({
         state: "uncertain",
         icon: "fa-circle-question",
         title: "UNCERTAIN",
-        subtitle: `This result is uncertain. ${uncertainty.reason}`,
+        subtitle: uncertainty.reason,
         badge: "NOT VERIFIED",
         action: uncertainty.action,
-        confidence: hideConfidence ? null : data.confidence,
+        confidence: null,
         checks: [
-          { ok: false, icon: "fa-circle-question", text: uncertainty.reason },
           wordsCheck,
           ...(authorCheck ? [authorCheck] : []),
           { ok: false, icon: "fa-link", text: "Verify with independent, trusted sources" }

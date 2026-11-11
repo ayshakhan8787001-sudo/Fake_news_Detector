@@ -35,10 +35,39 @@ MAX_PAGE_BYTES = 1_000_000
 MAX_INPUT_CHARS = 20_000
 UNCERTAIN_MARGIN_THRESHOLD = math.log(1.25)
 MIN_WORD_COUNT_FOR_CONFIDENT_RESULT = 8
-OPINION_CUE_PATTERN = re.compile(
-    r"\b(?:in my opinion|i think|i believe|i feel|my favorite|the best|the worst|"
-    r"best|worst|greatest|amazing|wonderful|terrible|awful|stupid|crazy)\b"
-    r"|\bhas gone mad\b"
+OPINION_FRAME_PATTERN = re.compile(
+    r"\b(?:in my opinion|from my perspective|my personal (?:opinion|view))\b"
+)
+PERSONAL_PREFERENCE_PATTERN = re.compile(
+    r"\b(?:i|we)\s+(?:(?:personally|really|strongly|genuinely)\s+)*"
+    r"(?:like|love|hate|dislike|prefer|enjoy|adore|detest)\b"
+)
+PERSONAL_EVALUATION_PATTERN = re.compile(
+    r"\b(?:i|we)\s+(?:think|believe|feel|consider|find)\b[^.!?;]{0,60}"
+    r"\b(?:beautiful|gorgeous|ugly|attractive|terrible|awful|horrible|amazing|"
+    r"wonderful|fantastic|excellent|great|good|bad|boring|exciting|fun|"
+    r"fascinating|overrated|underrated|pointless|ridiculous|stupid|crazy|"
+    r"mad|insane|delusional|unstable|mentally ill|best|worst|greatest|favorite)\b"
+)
+SUBJECTIVE_TERMS = (
+    r"beautiful|gorgeous|ugly|attractive|terrible|awful|horrible|amazing|"
+    r"wonderful|fantastic|excellent|great|good|bad|boring|exciting|fun|"
+    r"fascinating|overrated|underrated|pointless|ridiculous|stupid|crazy|"
+    r"mad|insane|delusional|unstable|mentally ill|best|worst|greatest|favorite|"
+    r"better|worse|superior|inferior|preferable|brilliant|perfect|mediocre|"
+    r"worthless|unfair|unjust|disgraceful|overhyped"
+)
+SUBJECTIVE_PREDICATE_PATTERN = re.compile(
+    rf"\b(?:is|are|was|were|seems?|looks?|sounds?|feels?|became|remains|has|have)"
+    rf"(?:\s+[\w'-]+){{0,4}}\s+\b(?:{SUBJECTIVE_TERMS})\b"
+)
+SUBJECTIVE_MODIFIER_PATTERN = re.compile(
+    rf"\b(?:most|least)\s+(?:[\w'-]+\s+){{0,2}}(?:{SUBJECTIVE_TERMS})\b|"
+    rf"\b(?:the\s+)?(?:best|worst|greatest|favorite)\s+"
+    r"(?!(?:selling|known|paid|case|effort|practice)\b)[a-z][\w'-]*\b|"
+    rf"\b(?:a|an|the|this|that|my|your|our|their)\s+"
+    rf"(?:(?:very|really|extremely|incredibly)\s+)?(?:{SUBJECTIVE_TERMS})"
+    r"\s+[\w'-]+\b"
 )
 AMBIGUITY_CUE_PATTERN = re.compile(
     r"\b(?:maybe|perhaps|possibly|might|could be|seems?|apparently|allegedly|"
@@ -48,6 +77,16 @@ NEWSAPI_KEY = os.environ.get("NEWSAPI_KEY", "").strip()
 
 
 initialize_database()
+
+
+def is_opinion_like(text):
+    return bool(
+        OPINION_FRAME_PATTERN.search(text)
+        or PERSONAL_PREFERENCE_PATTERN.search(text)
+        or PERSONAL_EVALUATION_PATTERN.search(text)
+        or SUBJECTIVE_PREDICATE_PATTERN.search(text)
+        or SUBJECTIVE_MODIFIER_PATTERN.search(text)
+    )
 
 
 def find_author_metadata(value):
@@ -424,7 +463,7 @@ def predict():
         word_count = len(news_text.split())
         short_input = word_count < MIN_WORD_COUNT_FOR_CONFIDENT_RESULT
         no_recognized_features = text_vector.nnz == 0
-        opinion_like = bool(OPINION_CUE_PATTERN.search(model_text))
+        opinion_like = is_opinion_like(model_text)
         ambiguous = bool(AMBIGUITY_CUE_PATTERN.search(model_text))
         weak_signal = margin < UNCERTAIN_MARGIN_THRESHOLD
         if no_recognized_features:
@@ -444,18 +483,18 @@ def predict():
         result = {
             "prediction": (
                 None
-                if uncertainty_reason in {
-                    "unrecognized_text",
-                    "opinion_like",
-                    "ambiguous",
-                }
+                if uncertain
                 else bool(prediction == 1)
             ),
             "uncertain": bool(uncertain),
             "uncertain_reason": uncertainty_reason,
             "model_disagreement": bool(model_disagreement),
             "short_input": bool(short_input),
-            "confidence": float(probabilities[prediction_class_index]),
+            "confidence": (
+                None
+                if uncertain
+                else float(probabilities[prediction_class_index])
+            ),
             "word_count": word_count,
         }
 
