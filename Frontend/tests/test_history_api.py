@@ -139,6 +139,8 @@ class HistoryApiTests(unittest.TestCase):
                         ).get_json()
 
         self.assertTrue(uncertain["uncertain"])
+        self.assertIsNone(uncertain["prediction"])
+        self.assertIsNone(uncertain["confidence"])
         self.assertFalse(classified["uncertain"])
 
     def test_prediction_confidence_and_model_disagreement(self):
@@ -184,10 +186,16 @@ class HistoryApiTests(unittest.TestCase):
                                     },
                                 ).get_json()
 
-                    self.assertEqual(result["prediction"], bool(primary_prediction))
+                    self.assertEqual(
+                        result["prediction"],
+                        None if disagreement else bool(primary_prediction),
+                    )
                     self.assertEqual(result["uncertain"], disagreement)
                     self.assertEqual(result["model_disagreement"], disagreement)
-                    self.assertAlmostEqual(result["confidence"], expected_confidence)
+                    if disagreement:
+                        self.assertIsNone(result["confidence"])
+                    else:
+                        self.assertAlmostEqual(result["confidence"], expected_confidence)
 
     def test_opinion_like_short_input_is_uncertain_even_when_models_agree(self):
         evidence = {
@@ -220,7 +228,7 @@ class HistoryApiTests(unittest.TestCase):
         self.assertTrue(result["short_input"])
         self.assertFalse(result["model_disagreement"])
         self.assertEqual(result["word_count"], 5)
-        self.assertEqual(result["confidence"], 0.9)
+        self.assertIsNone(result["confidence"])
 
     def test_short_factual_text_uses_model_uncertainty_not_word_count(self):
         evidence = {
@@ -281,6 +289,64 @@ class HistoryApiTests(unittest.TestCase):
         self.assertTrue(result["uncertain"])
         self.assertEqual(result["uncertain_reason"], "opinion_like")
         self.assertIsNone(result["prediction"])
+        self.assertIsNone(result["confidence"])
+
+    def test_subjective_and_mental_state_inputs_are_abstained(self):
+        examples = (
+            "I think this movie is terrible.",
+            "This is the most beautiful city.",
+            "That politician is overrated.",
+            "Is Narendra Modi gone mad?",
+            "I personally dislike this decision.",
+            "This is the best phone available.",
+            "In my opinion, the restaurant is awful.",
+            "I prefer tea over coffee.",
+            "The actor seems unstable.",
+            "Has that leader gone crazy?",
+            "This is a fascinating book.",
+        )
+        evidence = {
+            "available": False,
+            "provider": "NewsAPI",
+            "message": "Not configured",
+            "articles": [],
+        }
+
+        with patch.object(detector, "search_related_news", return_value=evidence):
+            with patch.object(detector.model, "predict", return_value=np.array([1])):
+                with patch.object(
+                    detector.model,
+                    "decision_function",
+                    return_value=np.array([1.0]),
+                ):
+                    with patch.object(
+                        detector.confidence_model,
+                        "predict_proba",
+                        return_value=np.array([[0.1, 0.9]]),
+                    ):
+                        for text in examples:
+                            with self.subTest(text=text):
+                                result = self.client.post(
+                                    "/predict",
+                                    json={"text": text, "is_url": False},
+                                ).get_json()
+
+                                self.assertTrue(result["uncertain"])
+                                self.assertEqual(result["uncertain_reason"], "opinion_like")
+                                self.assertIsNone(result["prediction"])
+                                self.assertIsNone(result["confidence"])
+
+    def test_factual_language_without_subjective_context_is_not_marked_as_opinion(self):
+        examples = (
+            "I think the meeting starts at noon.",
+            "The politician announced a new policy.",
+            "The best-selling phone arrived today.",
+            "The word mad appears in the headline.",
+        )
+
+        for text in examples:
+            with self.subTest(text=text):
+                self.assertFalse(detector.is_opinion_like(text.casefold()))
 
     def test_beauty_opinion_is_uncertain_not_a_fake_news_verdict(self):
         evidence = {
